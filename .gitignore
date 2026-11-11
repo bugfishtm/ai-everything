@@ -1,0 +1,18 @@
+node_modules/
+dist/
+data/
+.env
+# local deployment kit: the zip holds a real .env (secrets) — never publish it
+_DEVPACKAGE.zip
+*.log
+.DS_Store
+__pycache__/
+
+# generated at image build time (packs/*/install.sh, tools/*/install.sh)
+tools/*/vendor/
+packs/gm-instruments/pack.json
+packs/gm-instruments/FluidR3_GM.sf2
+packs/studio-drums/pack.json
+packs/studio-drums/samples/
+packs/basic-3d/models/
+backups/

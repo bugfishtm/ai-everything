@@ -1,0 +1,15 @@
+/*
+Theme Name:        {{NAME}}
+Description:       {{DESCRIPTION}}
+Version:           {{VERSION}}
+Requires at least: 6.4
+Requires PHP:      7.4
+Author:            {{AUTHOR}}
+License:           GPL-2.0-or-later
+Text Domain:       {{SLUG}}
+*/
+
+/* A block theme takes its look from theme.json — this file holds only what theme.json cannot say. */
+.wp-site-blocks > footer {
+	margin-block-start: 0;
+}

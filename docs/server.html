@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Server &amp; HTTPS — Everything Studio</title>
+<meta name="description" content="Run Everything Studio on a public server: DNS, ports 80/443, built-in HTTPS with Let&#x27;s Encrypt, Caddy, nginx reverse proxy and CDN setups.">
+<meta name="theme-color" content="#090b10">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Server &amp;amp; HTTPS — Everything Studio">
+<meta property="og:description" content="Run Everything Studio on a public server: DNS, ports 80/443, built-in HTTPS with Let&#x27;s Encrypt, Caddy, nginx reverse proxy and CDN setups.">
+<meta property="og:image" content="assets/img/dashboard.webp">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.svg" alt="" width="30" height="30">
+      <span>Everything Studio<small>ai-everything</small></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <nav class="nav-links" aria-label="Main">
+      <a href="index.html">Overview</a><a href="install.html">Install</a><a href="server.html" aria-current="page">Server &amp; HTTPS</a><a href="guide.html">Guide</a><a href="config.html">Configuration</a>
+      <a class="gh" href="https://github.com/bugfishtm/ai-everything" rel="noopener">GitHub <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+<div class="page-head"><div class="wrap">
+  <h1>Server &amp; HTTPS</h1>
+  <p>Put the Studio on a public server: DNS, ports, certificates from Let's Encrypt — on its own, or behind Caddy, nginx or a CDN.</p>
+</div></div>
+<div class="wrap doc">
+  <aside class="toc" aria-label="On this page"><b>On this page</b><a href="#the-three-ports">The three ports</a><a href="#dns">DNS</a><a href="#built-in-https">Built-in HTTPS</a><a href="#how-certificates-work" class="sub">How certificates work</a><a href="#the-first-account" class="sub">The first account</a><a href="#behind-caddy">Behind Caddy</a><a href="#behind-nginx-or-another-proxy">Behind nginx or another proxy</a><a href="#behind-apache" class="sub">Behind Apache</a><a href="#behind-a-cdn" class="sub">Behind a CDN</a><a href="#firewall-and-a-short-checklist">Firewall and a short checklist</a><a href="#when-a-certificate-does-not-come">When a certificate does not come</a></aside>
+  <article class="prose">
+<h2 id="the-three-ports">The three ports<a class="anchor" href="#the-three-ports" aria-label="Link to this section">#</a></h2>
+
+<p>The container listens on three ports. Everything about servers, domains and proxies follows from what each one is for:</p>
+<div class="table-wrap"><table><thead><tr><th>Port</th><th>Serves</th><th>Chosen by</th></tr></thead><tbody><tr><td><code>8080</code></td><td><strong>The Studio</strong> — the website people log in to, its API and its WebSocket; and the Node.js servers of projects under <code>/srv/&lt;name&gt;/</code></td><td>the port</td></tr><tr><td><code>8081</code></td><td><strong>Websites</strong> — published web apps and games, and WordPress sites, over HTTP. Also answers the certificate authority's domain check.</td><td>the host name of the request</td></tr><tr><td><code>8443</code></td><td><strong>The same websites over HTTPS</strong>, one certificate per domain — and the Studio itself under its own domain.</td><td>the host name (SNI)</td></tr></tbody></table></div>
+<p>On your own computer they are published on <code>127.0.0.1</code> as they are. On a server, 8081 becomes port <strong>80</strong> and 8443 becomes port <strong>443</strong> — and there are three ways to get there:</p>
+<div class="table-wrap"><table><thead><tr><th>Way</th><th>Who handles HTTPS</th><th>Good for</th></tr></thead><tbody><tr><td><a href="#built-in-https">Built-in HTTPS</a></td><td>The Studio: certificates from Let's Encrypt per domain, requested and renewed by itself</td><td>A server of its own. The least to set up — recommended.</td></tr><tr><td><a href="#behind-caddy">Caddy in front</a></td><td>A Caddy container that ships with the repository</td><td>When you prefer a separate, well-known proxy doing TLS.</td></tr><tr><td><a href="#behind-nginx-or-another-proxy">Your own proxy</a></td><td>nginx, <a href="#behind-apache">Apache</a>, Traefik, HAProxy, a load balancer …</td><td>A server that already runs a proxy for other sites.</td></tr></tbody></table></div>
+<h2 id="dns">DNS<a class="anchor" href="#dns" aria-label="Link to this section">#</a></h2>
+
+<p>Create these records at your domain provider. <code>203.0.113.7</code> stands for your server's address.</p>
+<div class="table-wrap"><table><thead><tr><th>Record</th><th>Points to</th><th>For</th></tr></thead><tbody><tr><td><code>studio.example.com</code> A (and AAAA)</td><td>the server</td><td>The Studio itself</td></tr><tr><td><code>*.apps.example.com</code> A (and AAAA)</td><td>the server</td><td>Optional but comfortable: every website and WordPress site gets <code>&lt;name&gt;.apps.example.com</code> by itself (<code>SITES_BASE_DOMAIN</code>)</td></tr><tr><td><code>mygame.com</code>, <code>www.mygame.com</code> A (and AAAA)</td><td>the server</td><td>Own domains that users add to a website</td></tr></tbody></table></div><div class="callout warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><p>Use a <strong>separate domain</strong> for websites — not a sub-domain of the Studio's own (<code>apps.example.com</code> beside <code>studio.example.com</code> is fine; <code>sites.studio.example.com</code> is not). Websites run other people's code; browsers share cookies between a domain and its sub-domains.</p></div></div><div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><p>No domain at hand? A wildcard DNS service gives you names for an address: <code>SITES_BASE_DOMAIN=203.0.113.7.sslip.io</code> makes every site reachable as <code>&lt;name&gt;.203.0.113.7.sslip.io</code>.</p></div></div>
+<h2 id="built-in-https">Built-in HTTPS<a class="anchor" href="#built-in-https" aria-label="Link to this section">#</a></h2>
+
+<p>The repository has a second Compose file and an example configuration for exactly this case.</p>
+<div class="code"><div class="code-head"><span>On the server</span><button class="copy" type="button">Copy</button></div><pre><code>git clone https://github.com/bugfishtm/ai-everything.git
+cd ai-everything
+cp .env.server.example .env
+nano .env                       # the values marked CHANGE
+docker compose up -d
+docker compose logs -f studio   # wait for: certificate for studio.example.com issued</code></pre></div>
+<p>Then open <code>https://studio.example.com</code> and log in.</p>
+<h4>What you fill in</h4>
+<div class="code"><div class="code-head"><span>.env</span><button class="copy" type="button">Copy</button></div><pre><code>COMPOSE_FILE=docker-compose.yml:docker-compose.server.yml
+
+STUDIO_DOMAIN=studio.example.com          # the Studio's own host name
+PUBLIC_URL=https://studio.example.com
+
+ACME_AGREE_TOS=yes                        # you accept the certificate authority's terms
+ACME_EMAIL=you@example.com
+
+ADMIN_EMAIL=you@example.com               # the first account
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=a-long-password
+
+REGISTRATION=closed
+SITES_BASE_DOMAIN=apps.example.com        # optional: &lt;name&gt;.apps.example.com for every site</code></pre></div>
+<h4>What the server file does</h4>
+<ul>
+  <li>Publishes <strong>80</strong> and <strong>443</strong> on every address of the server — IPv4 and IPv6. (A domain with an AAAA record is checked over IPv6 by the certificate authority; a port published as <code>0.0.0.0:80</code> would be IPv4 only.)</li>
+  <li>Keeps the Studio's plain port <strong>8080 on the server itself</strong>. People reach the Studio over HTTPS under <code>STUDIO_DOMAIN</code>. For maintenance without a certificate: <code>ssh -L 8080:127.0.0.1:8080 you@server</code>, then <code>http://localhost:8080</code>.</li>
+  <li>Tells the Studio the real ports, so the addresses it shows are right, and sets cookies to HTTPS only.</li>
+</ul>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Everything Studio · Admin</span></div><img src="assets/img/https.webp" alt="The HTTPS section of the admin page: automatic certificates, the Studio&#x27;s own address and the list of certificates" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Admin → HTTPS: the same settings on the website, and every certificate</figcaption></figure>
+
+<h3 id="how-certificates-work">How certificates work<a class="anchor" href="#how-certificates-work" aria-label="Link to this section">#</a></h3>
+
+<ul>
+  <li>A certificate is requested when a host is <strong>live</strong> (the Studio's domain, a published website, an installed WordPress) and its <strong>DNS points to the server</strong>. The certificate authority then calls <code>http://&lt;domain&gt;/.well-known/acme-challenge/…</code> on <strong>port 80</strong> — so port 80 must be reachable from the internet.</li>
+  <li>They are <strong>renewed</strong> when a third of their lifetime is left (30 days at most), checked every ten minutes.</li>
+  <li>A failed request is tried again with growing pauses — 5 minutes, 15, an hour, up to a day. The reason is shown next to the domain (the project's <em>Website</em> tab, <em>Admin → HTTPS</em>). <em>Request now</em> tries at once.</li>
+  <li>New orders are limited for the whole Studio (<code>ACME_ORDERS_PER_HOUR</code>, 40) so that no single user can use up the authority's limits.</li>
+  <li>Private keys are stored encrypted in the database.</li>
+</ul>
+<p>Per domain the owner chooses, in the project's <em>Website</em> tab:</p>
+<div class="table-wrap"><table><thead><tr><th>Mode</th><th>Meaning</th></tr></thead><tbody><tr><td>Automatic</td><td>Let's Encrypt — or another ACME authority set under <em>Admin → HTTPS</em> (<code>ACME_DIRECTORY_URL</code>). There is also Let's Encrypt's staging authority for tests.</td></tr><tr><td>Your own</td><td>Paste a certificate and its key (PEM) — from your own authority, or an origin certificate of a CDN. Checked against the domain. Admins can upload <strong>wildcard</strong> certificates for a whole base domain.</td></tr><tr><td>Self-signed</td><td>Generated on the spot. For tests and private networks — browsers warn.</td></tr><tr><td>Off</td><td>No HTTPS for this host.</td></tr></tbody></table></div>
+<p>Each domain also has <em>redirect HTTP to HTTPS</em> (on by default once a certificate is there) and <em>HSTS</em>.</p>
+<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><p>Many sites under one base domain? Let's Encrypt issues 50 certificates per registered domain and week. Upload one <strong>wildcard certificate</strong> for <code>*.apps.example.com</code> under <em>Admin → HTTPS</em> and every site below it is covered at once.</p></div></div>
+<h3 id="the-first-account">The first account<a class="anchor" href="#the-first-account" aria-label="Link to this section">#</a></h3>
+
+<p>On a public server set <code>ADMIN_EMAIL</code> and <code>ADMIN_PASSWORD</code> — the account is created at the first start.</p>
+<p>Without them the first visitor creates the admin account. From the server itself or its private network that simply works; from anywhere else the form asks for a <strong>setup code</strong> that only someone with access to the server can read:</p>
+<div class="code"><div class="code-head"><span>On the server</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose logs studio | grep "setup code"</code></pre></div>
+<p>Registration is closed by default: after the first account, administrators add people under <em>Admin → Users</em>.</p>
+
+<h2 id="behind-caddy">Behind Caddy<a class="anchor" href="#behind-caddy" aria-label="Link to this section">#</a></h2>
+
+<p>The repository contains a Caddy service as a Compose profile. Caddy takes ports 80 and 443, gets the certificate for the Studio's domain, and certificates <strong>on demand</strong> for every website host — but only for hosts the Studio confirms.</p>
+<div class="code"><div class="code-head"><span>.env</span><button class="copy" type="button">Copy</button></div><pre><code>DOMAIN=studio.example.com
+PUBLIC_URL=https://studio.example.com
+TRUST_PROXY=true
+SITES_HTTPS=true              # a proxy does HTTPS: the built-in HTTPS switches itself off
+SITES_BASE_DOMAIN=apps.example.com</code></pre></div>
+<div class="code"><div class="code-head"><span>Start</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose --profile https up -d</code></pre></div>
+<p>Keep <code>SITES_PORT</code> and <code>SITES_HTTPS_PORT</code> at their defaults and do <strong>not</strong> add <code>docker-compose.server.yml</code> — Caddy owns ports 80 and 443 here.</p>
+<p>This is the whole proxy configuration (<code>docker/Caddyfile</code>):</p>
+<div class="code"><div class="code-head"><span>Caddyfile</span><button class="copy" type="button">Copy</button></div><pre><code>{
+	on_demand_tls {
+		ask http://studio:8081/.well-known/ai-everything/tls-allowed
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy studio:8080
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	reverse_proxy studio:8081
+}
+
+http:// {
+	redir https://{host}{uri} 308
+}</code></pre></div>
+
+<h2 id="behind-nginx-or-another-proxy">Behind nginx or another proxy<a class="anchor" href="#behind-nginx-or-another-proxy" aria-label="Link to this section">#</a></h2>
+
+<p>Any reverse proxy works when it does five things:</p>
+<ol>
+  <li><strong>Routes by host</strong>: the Studio's host name → port <code>8080</code>, every other host name → port <code>8081</code>.</li>
+  <li><strong>Passes the original host and scheme</strong>: <code>Host</code> (or <code>X-Forwarded-Host</code>), <code>X-Forwarded-Proto</code>, <code>X-Forwarded-For</code>.</li>
+  <li><strong>Passes WebSockets</strong>: the Studio uses <code>/ws</code>; project servers use <code>/srv/&lt;name&gt;/…</code> on both ports.</li>
+  <li><strong>Does not buffer and does not hurry</strong>: answers are streamed, an AI run can take a long time. Timeouts of an hour, buffering off.</li>
+  <li><strong>Lets uploads through</strong>: up to <code>UPLOAD_LIMIT_MB</code> (500) on the Studio, <code>WORDPRESS_UPLOAD_MB</code> (64) on websites.</li>
+</ol>
+<p>And the Studio needs to know about it:</p>
+<div class="code"><div class="code-head"><span>.env</span><button class="copy" type="button">Copy</button></div><pre><code>TRUST_PROXY=true                       # believe the X-Forwarded-* headers
+PUBLIC_URL=https://studio.example.com
+SITES_HTTPS=true                       # addresses are https://…, the built-in HTTPS is off
+SITES_BASE_DOMAIN=apps.example.com
+<span class="c"># STUDIO_BIND and SITES_BIND stay 127.0.0.1 when the proxy runs on the same machine</span></code></pre></div>
+<div class="callout warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><p>Set <code>TRUST_PROXY=true</code> only when a proxy really is in front and nothing else can reach ports 8080 and 8081 — otherwise anybody could send those headers.</p></div></div>
+<h4>nginx</h4>
+<div class="code"><div class="code-head"><span>/etc/nginx/conf.d/studio.conf</span><button class="copy" type="button">Copy</button></div><pre><code>map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+<span class="c"># The Studio itself</span>
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name studio.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/studio.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/studio.example.com/privkey.pem;
+
+    client_max_body_size 600m;               # UPLOAD_LIMIT_MB and some room
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+        proxy_buffering         off;
+        proxy_request_buffering off;
+    }
+}
+
+<span class="c"># Websites and WordPress sites: every other host name</span>
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name *.apps.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/apps.example.com/fullchain.pem;    # a wildcard certificate
+    ssl_certificate_key /etc/letsencrypt/live/apps.example.com/privkey.pem;
+
+    client_max_body_size 100m;               # WORDPRESS_UPLOAD_MB and some room
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+        proxy_buffering         off;
+        proxy_request_buffering off;
+    }
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    return 308 https://$host$request_uri;
+}</code></pre></div>
+<p>With a proxy of your own, <strong>its</strong> certificates decide which domains work over HTTPS. A wildcard certificate covers the base domain; for own domains that users add you issue certificates in the proxy — or let Caddy's on-demand TLS or the built-in HTTPS do that, which is what they are made for.</p>
+<h4>Asking the Studio whether a host is real</h4>
+<p>Proxies that can issue certificates on demand should ask first, as the Caddy setup does. This address answers <code>200</code> for hosts of live websites and <code>404</code> for everything else:</p>
+<div class="code"><div class="code-head"><span>Check</span><button class="copy" type="button">Copy</button></div><pre><code>http://127.0.0.1:8081/.well-known/ai-everything/tls-allowed?domain=mygame.com</code></pre></div>
+
+<h3 id="behind-apache">Behind Apache<a class="anchor" href="#behind-apache" aria-label="Link to this section">#</a></h3>
+
+<p>Apache needs the modules <code>proxy</code>, <code>proxy_http</code>, <code>proxy_wstunnel</code>, <code>rewrite</code>, <code>headers</code> and <code>ssl</code>. On Debian and Ubuntu:</p>
+<div class="code"><div class="code-head"><span>Shell</span><button class="copy" type="button">Copy</button></div><pre><code>sudo a2enmod proxy proxy_http proxy_wstunnel rewrite headers ssl
+sudo systemctl reload apache2</code></pre></div>
+<p>Two virtual hosts: one for the Studio's host name (port <code>8080</code>), one for every other host name (port <code>8081</code>). The WebSocket rule must cover <strong>every path</strong>, not only <code>/ws</code> — project servers use <code>/srv/&lt;name&gt;/…</code>, and a website in server mode can use any path. Without <code>X-Forwarded-Proto</code> the Studio believes requests are plain HTTP: websites with “force HTTPS” then redirect in a loop and secure cookies fail.</p>
+<div class="code"><div class="code-head"><span>/etc/apache2/sites-available/000-studio.conf</span><button class="copy" type="button">Copy</button></div><pre><code><span class="c"># Websites and WordPress sites: every other host name.
+# The first *:443 host Apache loads is its default — so own domains that users add land here.</span>
+&lt;VirtualHost *:443&gt;
+    ServerName  apps.example.com
+    ServerAlias *.apps.example.com
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/apps.example.com/fullchain.pem   <span class="c"># a wildcard certificate</span>
+    SSLCertificateKeyFile /etc/letsencrypt/live/apps.example.com/privkey.pem
+
+    LimitRequestBody 104857600                <span class="c"># 100 MB: WORDPRESS_UPLOAD_MB and some room</span>
+
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteRule ^/(.*) ws://127.0.0.1:8081/$1 [P,L]
+
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto "https"
+    ProxyPass        / http://127.0.0.1:8081/ flushpackets=on
+    ProxyPassReverse / http://127.0.0.1:8081/
+    ProxyTimeout 3600
+&lt;/VirtualHost&gt;
+
+<span class="c"># The Studio itself</span>
+&lt;VirtualHost *:443&gt;
+    ServerName studio.example.com
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/studio.example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/studio.example.com/privkey.pem
+
+    LimitRequestBody 629145600                <span class="c"># 600 MB: UPLOAD_LIMIT_MB and some room</span>
+
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteRule ^/(.*) ws://127.0.0.1:8080/$1 [P,L]
+
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto "https"
+    ProxyPass        / http://127.0.0.1:8080/ flushpackets=on
+    ProxyPassReverse / http://127.0.0.1:8080/
+    ProxyTimeout 3600
+&lt;/VirtualHost&gt;
+
+<span class="c"># Plain HTTP: everything to HTTPS</span>
+&lt;VirtualHost *:80&gt;
+    ServerName  studio.example.com
+    ServerAlias *
+    RewriteEngine On
+    RewriteRule ^/(.*) https://%{HTTP_HOST}/$1 [R=308,L]
+&lt;/VirtualHost&gt;</code></pre></div>
+<div class="code"><div class="code-head"><span>Shell</span><button class="copy" type="button">Copy</button></div><pre><code>sudo a2ensite 000-studio
+sudo apachectl configtest &amp;&amp; sudo systemctl reload apache2</code></pre></div>
+<p>The Studio needs to know about the proxy — these lines in <code>.env</code>, then <code>docker compose up -d</code>:</p>
+<div class="code"><div class="code-head"><span>.env</span><button class="copy" type="button">Copy</button></div><pre><code><span class="c"># Apache on the same machine: the container's ports stay local</span>
+STUDIO_BIND=127.0.0.1
+STUDIO_PORT=8080
+SITES_BIND=127.0.0.1
+SITES_PORT=8081
+
+TRUST_PROXY=true                       # believe Apache's X-Forwarded-* headers
+PUBLIC_URL=https://studio.example.com
+COOKIE_SECURE=true                     # cookies only over HTTPS
+SITES_HTTPS=true                       # website addresses are https://…, the built-in HTTPS is off
+SITES_BASE_DOMAIN=apps.example.com     # optional: needs the wildcard DNS record *.apps.example.com</code></pre></div>
+<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><p>Use <code>127.0.0.1</code> in <code>ProxyPass</code>, not <code>localhost</code>: <code>localhost</code> can resolve to the IPv6 address <code>::1</code>, where Docker does not listen, and you get random 503 errors. Leave <code>SITES_PORT</code> at <code>8081</code> here — with a proxy in front it is the port Apache talks to, not the one visitors see.</p></div></div>
+
+<h3 id="behind-a-cdn">Behind a CDN<a class="anchor" href="#behind-a-cdn" aria-label="Link to this section">#</a></h3>
+
+<p>With a CDN or a DNS proxy in front (Cloudflare with the orange cloud, for example), visitors talk to the CDN and the CDN talks to your server:</p>
+<ul>
+  <li>Use the <strong>built-in HTTPS with your own certificate</strong>: create an origin certificate at the CDN and paste it under the domain's <em>HTTPS</em> settings (or as a wildcard under <em>Admin → HTTPS</em>). Set the CDN to verify it (“Full (strict)”).</li>
+  <li>Automatic certificates need the certificate authority to reach port 80 of <em>your server</em> under the domain. With the CDN in between that is not guaranteed — a DNS-only record (grey cloud) is the simple way if you want them.</li>
+  <li>WebSockets must be allowed, and upload limits of the CDN apply on top of the Studio's.</li>
+</ul>
+
+<h2 id="firewall-and-a-short-checklist">Firewall and a short checklist<a class="anchor" href="#firewall-and-a-short-checklist" aria-label="Link to this section">#</a></h2>
+
+<ul>
+  <li>Open <strong>80</strong> and <strong>443</strong> (TCP) — and your SSH port. Nothing else.</li>
+  <li>Docker publishes ports itself, past host firewalls like <code>ufw</code>: what a Compose file publishes on all addresses is reachable. The server file publishes only 80 and 443 that way; 8080 stays on <code>127.0.0.1</code>.</li>
+  <li><code>REGISTRATION=closed</code> and an admin account from <code>.env</code>.</li>
+  <li>A backup that runs: <code>./scripts/backup.sh</code> from cron, copied off the server.</li>
+  <li>Updates: <code>docker compose pull &amp;&amp; docker compose up -d</code>. WordPress sites update their security releases themselves; keep their plugins current.</li>
+  <li>Know the limits per user (<code>MAX_RUNS_PER_USER</code>, <code>MAX_SERVICES_PER_USER</code>, <code>MAX_SITES_PER_USER</code>, <code>MAX_WORDPRESS_PER_USER</code>) — see <a href="config.html">Configuration</a>.</li>
+</ul>
+
+<h2 id="when-a-certificate-does-not-come">When a certificate does not come<a class="anchor" href="#when-a-certificate-does-not-come" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Message</th><th>Cause and fix</th></tr></thead><tbody><tr><td><em>… has no DNS record yet</em></td><td>The domain does not resolve. Create the A record (and AAAA) and wait until it is visible — the Studio tries again by itself.</td></tr><tr><td><em>… must reach http://domain/ on port 80</em></td><td>DNS points somewhere else, port 80 is closed, or the website port is not published as 80. A common trap: an <strong>AAAA record</strong> that points to another machine — the authority prefers IPv6.</td></tr><tr><td><em>Automatic certificates are switched off</em></td><td>An admin switches them on under <em>Admin → HTTPS</em> (contact e-mail, accepting the terms) — or <code>ACME_AGREE_TOS=yes</code> in <code>.env</code>.</td></tr><tr><td><em>… is not a public domain name</em></td><td>Names like <code>.local</code>, <code>.test</code> or <code>.localhost</code> cannot get a public certificate. Use a self-signed one.</td></tr><tr><td><em>… rate limited</em> / <em>many certificates were requested</em></td><td>The authority's or the Studio's limit. It continues by itself later; a wildcard certificate avoids it for a base domain.</td></tr><tr><td>The browser shows a certificate for <code>localhost</code></td><td>The host has no certificate (yet), so the fallback was sent. Look at the domain's status in the <em>Website</em> tab.</td></tr></tbody></table></div>
+<p>The AI in a project can look, too: <code>studio site cert</code> shows the state of each domain, <code>studio site cert issue</code> requests again, <code>studio site domain check</code> tests whether the domains reach this Studio.</p>
+
+<div class="next"><a href="install.html"><small>Before</small>Install</a><a href="guide.html"><small>Next</small>Guide</a></div>
+  </article>
+</div>
+</main>
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="index.html">
+          <img src="assets/img/logo.svg" alt="" width="30" height="30">
+          <span>Everything Studio<small>ai-everything</small></span>
+        </a>
+        <p>A self-hosted creative studio in one container: music, images, 3D, video, games, apps and WordPress — built by an AI that works with your own account.</p>
+      </div>
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="install.html">Install</a></li>
+          <li><a href="server.html">Server &amp; HTTPS</a></li>
+          <li><a href="guide.html">Guide</a></li>
+          <li><a href="config.html">Configuration</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/bugfishtm/ai-everything" rel="noopener">Source on GitHub</a></li>
+          <li><a href="https://hub.docker.com/r/bugfishtm/ai-everything" rel="noopener">Image on Docker Hub</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/issues" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="https://bugfishtm.github.io/privacy.html">Privacy</a></li>
+          <li><a href="https://bugfishtm.github.io/impressum.html">Impressum</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/LICENSE.md" rel="noopener">License (GPL-3.0)</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/LICENSES.md" rel="noopener">Third-party software</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>🐟 Bugfish · ai-everything is independent open-source software. It is not affiliated with or endorsed by Anthropic, OpenAI, Google or the WordPress Foundation. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+      <span><a href="https://bugfishtm.github.io/privacy.html">Privacy</a> · <a href="https://bugfishtm.github.io/impressum.html">Impressum</a></span>
+    </div>
+  </div>
+</footer>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>

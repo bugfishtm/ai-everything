@@ -1,0 +1,14 @@
+# deliverables are rebuilt from the sources
+exports/
+
+# Studio scratch (screenshots, browser output)
+.studio/browser/
+.studio/*.png
+.studio/previews/
+.studio/mcp/
+
+# dependencies and build output
+node_modules/
+dist/
+*.log
+.DS_Store

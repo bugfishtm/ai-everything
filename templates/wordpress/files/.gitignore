@@ -1,0 +1,18 @@
+# the WordPress installation itself (core, wp-config.php with its passwords, uploads,
+# installed plugins/themes) — your own code lives in plugins/ and themes/
+/wordpress/
+
+# deliverables are rebuilt from the sources
+exports/
+
+# Studio scratch (screenshots, browser output)
+.studio/browser/
+.studio/*.png
+.studio/previews/
+.studio/mcp/
+
+# dependencies and build output
+node_modules/
+vendor/
+*.log
+.DS_Store

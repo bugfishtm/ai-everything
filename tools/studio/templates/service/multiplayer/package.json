@@ -1,0 +1,16 @@
+{
+  "name": "{{NAME}}-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multiplayer server: WebSocket rooms with player state and chat",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

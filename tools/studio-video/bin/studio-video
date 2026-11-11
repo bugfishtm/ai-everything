@@ -1,0 +1,12 @@
+#!/opt/venv/bin/python3
+"""studio-video — videos from text timelines. Run `studio-video --help`."""
+import os
+import sys
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))  # the tool folder (studio_video package)
+
+from studio_video.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    main()

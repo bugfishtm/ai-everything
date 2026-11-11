@@ -1,0 +1,20 @@
+# Python libraries available to Claude in every project (/opt/venv).
+# Projects that need more create their own venv:  python3 -m venv .venv
+#
+# numbers / science
+numpy
+scipy
+# images
+pillow
+opencv-python-headless
+imageio
+svgwrite
+matplotlib
+# music / audio
+mido
+pretty_midi
+soundfile
+pydub
+# 3D
+trimesh
+pygltflib

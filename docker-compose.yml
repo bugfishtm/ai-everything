@@ -1,0 +1,157 @@
+# Everything Studio — ONE container: website + API + Claude Code + creative tools
+# + its own database (MariaDB, MySQL compatible).
+#
+#   docker compose up -d --build        then open http://localhost:8080
+#   (the first account you create becomes the admin; a .env file is optional)
+#
+# On a public web server (ports 80/443, HTTPS certificates, the Studio under its own domain):
+#   cp .env.server.example .env   — see docker-compose.server.yml and the README
+#
+# Everything persistent lives in two Docker volumes — they survive rebuilds,
+# updates and `docker compose down` (only `down -v` deletes them):
+#   studio-data   /data            projects, asset library, packs, user homes
+#                                  (Claude logins), runtime SDKs, generated secrets
+#   studio-db     /var/lib/mysql   the built-in database
+# Backups: scripts/backup.sh  ·  moving from the old ./data folders: scripts/migrate-to-volumes.sh
+name: ai-everything
+
+services:
+  studio:
+    build:
+      context: .
+      args:
+        # Claude Code is downloaded at runtime; true = bake it in (private images only, never publish)
+        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-false}
+        INSTALL_ANDROID: ${INSTALL_ANDROID:-true}
+        INSTALL_DOTNET: ${INSTALL_DOTNET:-true}
+        INSTALL_WINDOWS_CROSS: ${INSTALL_WINDOWS_CROSS:-true}
+        INSTALL_WINE: ${INSTALL_WINE:-false}
+        INSTALL_BROWSERS: ${INSTALL_BROWSERS:-true}
+        # PHP + WP-CLI for the WordPress area (WordPress itself is downloaded at runtime)
+        INSTALL_WORDPRESS: ${INSTALL_WORDPRESS:-true}
+    image: bugfishtm/ai-everything:latest
+    restart: unless-stopped
+    ports:
+      - "${STUDIO_BIND:-127.0.0.1}:${STUDIO_PORT:-8080}:8080"
+      # websites of projects (published web apps, chosen by domain) — on a web server:
+      # SITES_BIND=0.0.0.0, SITES_PORT=80 and SITES_HTTPS_PORT=443
+      - "${SITES_BIND:-127.0.0.1}:${SITES_PORT:-8081}:8081"
+      # the same websites over HTTPS: the Studio manages a certificate per domain (automatic
+      # Let's Encrypt, your own, or self-signed) — Website tab of a project and Admin → HTTPS
+      - "${SITES_BIND:-127.0.0.1}:${SITES_HTTPS_PORT:-8443}:8443"
+    environment:
+      APP_NAME: ${APP_NAME:-Everything Studio}
+      # Claude Code (Anthropic) is downloaded from npm on first start: latest = keep updated, or pin x.y.z
+      CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-latest}
+      CLAUDE_CODE_AUTO_INSTALL: ${CLAUDE_CODE_AUTO_INSTALL:-true}
+      CLAUDE_CODE_AUTO_UPDATE: ${CLAUDE_CODE_AUTO_UPDATE:-true}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      APP_SECRET: ${APP_SECRET:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      REGISTRATION: ${REGISTRATION:-closed}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+      DEFAULT_PERMISSION_MODE: ${DEFAULT_PERMISSION_MODE:-bypass}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-}
+      MAX_RUNS_PER_USER: ${MAX_RUNS_PER_USER:-2}
+      MAX_TERMINALS_PER_USER: ${MAX_TERMINALS_PER_USER:-4}
+      RUN_TIMEOUT_MINUTES: ${RUN_TIMEOUT_MINUTES:-60}
+      TERMINAL_IDLE_MINUTES: ${TERMINAL_IDLE_MINUTES:-30}
+      UPLOAD_LIMIT_MB: ${UPLOAD_LIMIT_MB:-500}
+      TRASH_DAYS: ${TRASH_DAYS:-7}
+      PACK_LIMIT_MB: ${PACK_LIMIT_MB:-4096}
+      # Node.js servers that projects deploy (multiplayer, storage …), reachable at /srv/<name>/
+      SERVICES_ENABLED: ${SERVICES_ENABLED:-true}
+      MAX_SERVICES_PER_USER: ${MAX_SERVICES_PER_USER:-3}
+      SERVICE_MEMORY_MB: ${SERVICE_MEMORY_MB:-512}
+      # Websites: published web apps / games of projects on their own domains (second port)
+      SITES_ENABLED: ${SITES_ENABLED:-true}
+      SITES_PORT: ${SITES_PORT:-8081}
+      SITES_HTTPS: ${SITES_HTTPS:-false}
+      # built-in HTTPS with a certificate per domain (false: plain HTTP only, e.g. behind your own proxy)
+      SITES_TLS: ${SITES_TLS:-true}
+      SITES_HTTPS_PORT: ${SITES_HTTPS_PORT:-8443}
+      # automatic certificates: contact e-mail for the certificate authority; ACME_AGREE_TOS=yes accepts
+      # its terms without the click in Admin → HTTPS; another ACME CA instead of Let's Encrypt: its directory URL
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_AGREE_TOS: ${ACME_AGREE_TOS:-}
+      ACME_DIRECTORY_URL: ${ACME_DIRECTORY_URL:-}
+      # serve the Studio itself on the HTTPS port under this host name (can also be set in Admin → HTTPS)
+      STUDIO_DOMAIN: ${STUDIO_DOMAIN:-}
+      SITES_BASE_DOMAIN: ${SITES_BASE_DOMAIN:-}
+      MAX_SITES_PER_USER: ${MAX_SITES_PER_USER:-10}
+      SITE_MAX_MB: ${SITE_MAX_MB:-500}
+      # new certificate orders per hour for the whole Studio (protects the CA account's limits)
+      ACME_ORDERS_PER_HOUR: ${ACME_ORDERS_PER_HOUR:-40}
+      # WordPress: a real WordPress per project of that area (PHP as the owner's sandbox user,
+      # its own database), served on the website ports under its address and domains
+      WORDPRESS_ENABLED: ${WORDPRESS_ENABLED:-true}
+      MAX_WORDPRESS_PER_USER: ${MAX_WORDPRESS_PER_USER:-5}
+      WORDPRESS_MEMORY_MB: ${WORDPRESS_MEMORY_MB:-256}
+      WORDPRESS_MAX_WORKERS: ${WORDPRESS_MAX_WORKERS:-6}
+      WORDPRESS_UPLOAD_MB: ${WORDPRESS_UPLOAD_MB:-64}
+      WORDPRESS_IDLE_MINUTES: ${WORDPRESS_IDLE_MINUTES:-60}
+      WORDPRESS_PHP_HARDENING: ${WORDPRESS_PHP_HARDENING:-true}
+      # only with an EXTERNAL MySQL server (MYSQL_HOST): an account that may create databases
+      WORDPRESS_DB_ADMIN_USER: ${WORDPRESS_DB_ADMIN_USER:-}
+      WORDPRESS_DB_ADMIN_PASSWORD: ${WORDPRESS_DB_ADMIN_PASSWORD:-}
+      # largest exports/ folder kept with a release (versioning)
+      RELEASE_EXPORTS_MB: ${RELEASE_EXPORTS_MB:-1024}
+      # More AIs besides Claude Code (ACP agents: codex, gemini, opencode) — switched on in
+      # Admin → AI providers; AGENTS switches them on at the first start. Installed at runtime.
+      AGENTS: ${AGENTS:-}
+      AGENTS_AUTO_UPDATE: ${AGENTS_AUTO_UPDATE:-true}
+      AGENT_IDLE_MINUTES: ${AGENT_IDLE_MINUTES:-10}
+      ANDROID_SDK_ACCEPT_LICENSE: ${ANDROID_SDK_ACCEPT_LICENSE:-}
+      ANDROID_SDK_AUTO_INSTALL: ${ANDROID_SDK_AUTO_INSTALL:-false}
+      ANDROID_SDK_PACKAGES: ${ANDROID_SDK_PACKAGES:-}
+      # Empty = the built-in database. Set MYSQL_HOST (+ the others) for an external server.
+      MYSQL_HOST: ${MYSQL_HOST:-}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-studio}
+      MYSQL_USER: ${MYSQL_USER:-studio}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+    volumes:
+      - studio-data:/data
+      - studio-db:/var/lib/mysql
+    # headless Chromium needs more shared memory than Docker's 64 MB default
+    shm_size: "1gb"
+    # time for Claude runs and the database to shut down cleanly
+    stop_grace_period: 30s
+    # nothing inside may gain privileges it was not started with (the Studio only ever drops them)
+    security_opt:
+      - no-new-privileges:true
+    # processes + threads of the whole container: a runaway program of a user cannot exhaust the host
+    pids_limit: ${STUDIO_PIDS_LIMIT:-16384}
+    # the container log does not grow without end
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # Alternative to the built-in HTTPS: a Caddy proxy in front (it owns ports 80 and 443 and gets
+  # the certificates itself).  DOMAIN=studio.example.com in .env, then
+  #   docker compose --profile https up -d
+  # (also set TRUST_PROXY=true, PUBLIC_URL=https://studio.example.com and SITES_HTTPS=true — the
+  # built-in HTTPS then switches itself off; keep SITES_PORT and SITES_HTTPS_PORT at their defaults).
+  https:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on: [studio]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  studio-data:
+  studio-db:
+  caddy-data:

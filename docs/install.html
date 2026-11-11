@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install — Everything Studio</title>
+<meta name="description" content="Install Everything Studio with Docker: requirements, quick start, first steps, updates, backup and restore.">
+<meta name="theme-color" content="#090b10">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Install — Everything Studio">
+<meta property="og:description" content="Install Everything Studio with Docker: requirements, quick start, first steps, updates, backup and restore.">
+<meta property="og:image" content="assets/img/dashboard.webp">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.svg" alt="" width="30" height="30">
+      <span>Everything Studio<small>ai-everything</small></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <nav class="nav-links" aria-label="Main">
+      <a href="index.html">Overview</a><a href="install.html" aria-current="page">Install</a><a href="server.html">Server &amp; HTTPS</a><a href="guide.html">Guide</a><a href="config.html">Configuration</a>
+      <a class="gh" href="https://github.com/bugfishtm/ai-everything" rel="noopener">GitHub <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+<div class="page-head"><div class="wrap">
+  <h1>Install</h1>
+  <p>One container, two volumes. Running on your own computer in a few minutes.</p>
+</div></div>
+<div class="wrap doc">
+  <aside class="toc" aria-label="On this page"><b>On this page</b><a href="#requirements">Requirements</a><a href="#quick-start">Quick start</a><a href="#without-compose" class="sub">Without Compose</a><a href="#build-it-from-the-source" class="sub">Build it from the source</a><a href="#first-steps">First steps</a><a href="#where-your-data-lives">Where your data lives</a><a href="#updating">Updating</a><a href="#backup-and-restore">Backup and restore</a><a href="#removing-it">Removing it</a><a href="#if-something-does-not-work">If something does not work</a></aside>
+  <article class="prose">
+<h2 id="requirements">Requirements<a class="anchor" href="#requirements" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>What</th><th>Needed</th></tr></thead><tbody><tr><td>Docker</td><td>Docker Desktop (Windows, macOS) or Docker Engine (Linux) with Compose v2. The public-server setup needs Compose v2.24 or newer.</td></tr><tr><td>Processor</td><td>x86-64 (amd64). The published image is built for that architecture.</td></tr><tr><td>Memory</td><td>4 GB for the container at least — 8 GB or more when several people work, or for Android and .NET builds. On Docker Desktop raise the limit under <em>Settings → Resources</em>.</td></tr><tr><td>Disk</td><td>About 15 GB: the image is roughly 8 GB, the rest is your projects, the Android SDK and room to build.</td></tr><tr><td>Internet</td><td>At the first start the Studio downloads Claude Code (about 300 MB). WordPress and the Android SDK are downloaded when you set them up.</td></tr><tr><td>Browser</td><td>A current Chrome, Edge, Firefox or Safari. MIDI keyboards in the DAW need Web MIDI (Chrome, Edge, Firefox) and HTTPS or <code>localhost</code>.</td></tr><tr><td>An AI account</td><td>Each person uses their own: a Claude subscription (Pro, Max, Team) or an Anthropic API key — or an account of another AI the admin switched on.</td></tr></tbody></table></div>
+<h2 id="quick-start">Quick start<a class="anchor" href="#quick-start" aria-label="Link to this section">#</a></h2>
+
+<p>The whole Studio is one container. With Docker Compose:</p>
+<div class="code"><div class="code-head"><span>Terminal</span><button class="copy" type="button">Copy</button></div><pre><code>git clone https://github.com/bugfishtm/ai-everything.git
+cd ai-everything
+docker compose up -d</code></pre></div>
+<p>Compose takes the image <a href="https://hub.docker.com/r/bugfishtm/ai-everything" rel="noopener"><code>bugfishtm/ai-everything</code></a> from Docker Hub. No <code>.env</code> file is needed —
+copy <code>.env.example</code> to <code>.env</code> only when you want to change a port or a limit
+(<a href="config.html">Configuration</a>).</p>
+<p>Then open <strong>http://localhost:8080</strong>. The first account you create becomes the administrator.</p>
+<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><p>The first start takes a minute or two: the database is created and Claude Code is downloaded from npm. Follow it with <code>docker compose logs -f studio</code> — the Studio is ready when it prints <code>listening on http://0.0.0.0:8080</code>.</p></div></div>
+
+<h3 id="without-compose">Without Compose<a class="anchor" href="#without-compose" aria-label="Link to this section">#</a></h3>
+
+<p>The same image runs with plain Docker:</p>
+<div class="code"><div class="code-head"><span>Terminal</span><button class="copy" type="button">Copy</button></div><pre><code>docker run -d --name ai-everything \
+  -p 127.0.0.1:8080:8080 -p 127.0.0.1:8081:8081 -p 127.0.0.1:8443:8443 \
+  --shm-size=1g --restart unless-stopped \
+  -v studio-data:/data -v studio-db:/var/lib/mysql \
+  bugfishtm/ai-everything:latest</code></pre></div>
+<p>Settings are passed with <code>-e NAME=value</code>. <code>--shm-size=1g</code> is for the headless browser the AI uses to look at its own work.</p>
+
+<h3 id="build-it-from-the-source">Build it from the source<a class="anchor" href="#build-it-from-the-source" aria-label="Link to this section">#</a></h3>
+
+<p>To build the image yourself — with your changes, or without toolchains you do not need:</p>
+<div class="code"><div class="code-head"><span>Terminal</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose up -d --build</code></pre></div>
+<p>The first build takes 10–30 minutes. Switches in <code>.env</code> leave parts out:
+<code>INSTALL_DOTNET</code>, <code>INSTALL_WINDOWS_CROSS</code>, <code>INSTALL_ANDROID</code>, <code>INSTALL_BROWSERS</code>,
+<code>INSTALL_WORDPRESS</code>, <code>INSTALL_WINE</code>. The default build never contains Claude Code — see
+<a href="config.html#what-is-not-in-the-image">what is not in the image</a>.</p>
+
+<h2 id="first-steps">First steps<a class="anchor" href="#first-steps" aria-label="Link to this section">#</a></h2>
+
+<ol>
+  <li><strong>Create the first account</strong> on the login page — it is the administrator. (Opened from another network, the form asks for a setup code from the server log; see <a href="server.html#the-first-account">the first account</a>.)</li>
+  <li><strong>Connect your AI</strong> under <em>Account &amp; AI</em>:
+    <ul>
+      <li><em>Sign in to Claude Code</em> — Claude Code's own sign-in runs in a terminal in your browser; you approve it on Anthropic's site. The login stays in your private account on the server.</li>
+      <li>or paste an <em>API key</em> from the Anthropic Console (stored encrypted).</li>
+    </ul>
+  </li>
+  <li><strong>Pick an area</strong> on the home page, click <em>New project</em> and describe what you want — or start from one of the ideas.</li>
+</ol>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Everything Studio · JS Games</span></div><img src="assets/img/area.webp" alt="An area page with starter ideas and a New project button" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>An area page: start from an idea or an empty project</figcaption></figure>
+<p>Optional, for administrators:</p>
+<ul>
+  <li><em>Admin → AI providers</em> — switch on OpenAI Codex, Google Gemini, OpenCode or your own ACP agent. They are downloaded when you switch them on.</li>
+  <li><em>Admin → Android SDK</em> — install it (you accept Google's license there) to build Android apps.</li>
+  <li><em>Admin → Users</em> — add people. Registration is closed by default.</li>
+</ul>
+
+<h2 id="where-your-data-lives">Where your data lives<a class="anchor" href="#where-your-data-lives" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Volume</th><th>In the container</th><th>Holds</th></tr></thead><tbody><tr><td><code>studio-data</code></td><td><code>/data</code></td><td>Projects (each one a git repository), the asset library, packs, every user's home with their AI login, published websites, WordPress runtimes, downloaded SDKs, generated secrets</td></tr><tr><td><code>studio-db</code></td><td><code>/var/lib/mysql</code></td><td>The built-in database (MariaDB): accounts, projects, chats, usage — and one database per WordPress site</td></tr></tbody></table></div>
+<p>The volumes survive rebuilds, updates and <code>docker compose down</code>. Only <code>docker compose down -v</code> deletes them.</p>
+<p>The database runs inside the container and has no network port. <code>docker compose exec studio studio-db status|list|shell|dump</code> manages it.
+To use your own MySQL or MariaDB server instead, set <code>MYSQL_HOST</code> and its companions.</p>
+
+<h2 id="updating">Updating<a class="anchor" href="#updating" aria-label="Link to this section">#</a></h2>
+
+<div class="code"><div class="code-head"><span>With the image from Docker Hub</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose pull
+docker compose up -d</code></pre></div>
+<div class="code"><div class="code-head"><span>When you build from the source</span><button class="copy" type="button">Copy</button></div><pre><code>git pull
+./scripts/update.sh            # Windows: .\scripts\update.ps1
+./scripts/update.sh --full     # also newer base image and OS packages</code></pre></div>
+<p>The database is upgraded by itself at the next start. Claude Code keeps itself current
+(<code>CLAUDE_CODE_VERSION=latest</code>, checked at start and daily); <em>Admin → Claude Code</em> shows the version.</p>
+<div class="callout warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><p>Make a backup before an update. A newer Studio upgrades the database; going back to an older image afterwards needs the backup.</p></div></div>
+
+<h2 id="backup-and-restore">Backup and restore<a class="anchor" href="#backup-and-restore" aria-label="Link to this section">#</a></h2>
+
+<div class="code"><div class="code-head"><span>Backup — the Studio keeps running</span><button class="copy" type="button">Copy</button></div><pre><code>./scripts/backup.sh             # → backups/&lt;date&gt;/studio-db.sql.gz + studio-data.tar.gz
+./scripts/backup.sh --no-sdk    # without the Android SDK (it can be downloaded again)</code></pre></div>
+<p>The database dump includes the databases of all WordPress sites.</p>
+<div class="code"><div class="code-head"><span>Restore into a fresh installation</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose up --no-start
+docker run --rm -v ai-everything_studio-data:/data -v "$PWD/backups/&lt;date&gt;":/b alpine \
+  tar xzf /b/studio-data.tar.gz -C /data
+gunzip -c backups/&lt;date&gt;/studio-db.sql.gz | docker compose run --rm -T studio studio-db import
+docker compose up -d</code></pre></div>
+<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><p>Stored API keys and certificate keys are encrypted with the app secret. It is in the data volume (<code>home/.studio/app-secret</code>) and so part of the backup — or set your own <code>APP_SECRET</code> and keep it somewhere safe.</p></div></div>
+
+<h2 id="removing-it">Removing it<a class="anchor" href="#removing-it" aria-label="Link to this section">#</a></h2>
+
+<div class="code"><div class="code-head"><span>Terminal</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose down        # stops it; projects and accounts stay in the volumes
+docker compose down -v     # also deletes the volumes — everything is gone</code></pre></div>
+
+<h2 id="if-something-does-not-work">If something does not work<a class="anchor" href="#if-something-does-not-work" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>What you see</th><th>What to do</th></tr></thead><tbody><tr><td>The page does not open</td><td><code>docker compose ps</code> must show the container as <em>healthy</em>; <code>docker compose logs studio</code> says why not. <code>curl http://localhost:8080/api/health</code> answers <code>{"ok":true}</code> when it runs.</td></tr><tr><td>Port 8080 is taken</td><td>Set <code>STUDIO_PORT</code> (and <code>SITES_PORT</code>, <code>SITES_HTTPS_PORT</code> for 8081 and 8443) in <code>.env</code>.</td></tr><tr><td>“Claude Code is not installed”</td><td>The download needs internet access to npm. <em>Admin → Claude Code → Install</em> tries again.</td></tr><tr><td>The container restarts while building or installing</td><td>Docker Desktop's memory limit is too low. Give it 6–8 GB.</td></tr><tr><td>A website address like <code>name.localhost:8081</code> does not open</td><td>These addresses work in the browser on the computer that runs the Studio. For other devices use a domain — see <a href="server.html">Server &amp; HTTPS</a>.</td></tr><tr><td>The login form asks for a setup code</td><td>You are opening a Studio without accounts from another network. The code is in the log: <code>docker compose logs studio | grep "setup code"</code>.</td></tr></tbody></table></div>
+<div class="next"><a href="index.html"><small>Before</small>Overview</a><a href="server.html"><small>Next</small>Server &amp; HTTPS</a></div>
+  </article>
+</div>
+</main>
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="index.html">
+          <img src="assets/img/logo.svg" alt="" width="30" height="30">
+          <span>Everything Studio<small>ai-everything</small></span>
+        </a>
+        <p>A self-hosted creative studio in one container: music, images, 3D, video, games, apps and WordPress — built by an AI that works with your own account.</p>
+      </div>
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="install.html">Install</a></li>
+          <li><a href="server.html">Server &amp; HTTPS</a></li>
+          <li><a href="guide.html">Guide</a></li>
+          <li><a href="config.html">Configuration</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/bugfishtm/ai-everything" rel="noopener">Source on GitHub</a></li>
+          <li><a href="https://hub.docker.com/r/bugfishtm/ai-everything" rel="noopener">Image on Docker Hub</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/issues" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="https://bugfishtm.github.io/privacy.html">Privacy</a></li>
+          <li><a href="https://bugfishtm.github.io/impressum.html">Impressum</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/LICENSE.md" rel="noopener">License (GPL-3.0)</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/LICENSES.md" rel="noopener">Third-party software</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>🐟 Bugfish · ai-everything is independent open-source software. It is not affiliated with or endorsed by Anthropic, OpenAI, Google or the WordPress Foundation. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+      <span><a href="https://bugfishtm.github.io/privacy.html">Privacy</a> · <a href="https://bugfishtm.github.io/impressum.html">Impressum</a></span>
+    </div>
+  </div>
+</footer>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>

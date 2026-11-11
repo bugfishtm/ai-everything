@@ -1,0 +1,25 @@
+{
+  "id": "studio-image",
+  "name": "Studio Image",
+  "version": "0.1.0",
+  "description": "Pictures from text: a picture is YAML — a stack of layers (shapes, SVG paths, text, pictures, procedural textures, pixel art) with gradients, strokes, shadows, masks, blend modes and filters — rendered to PNG/JPG/WebP/ICO in several sizes with a preview and a report (brightness, contrast, colors, warnings). Posters, covers, logos, icons, banners, seamless textures and sprites for games. Also analyses, converts and packs existing images. Extensible with Python plugins (shapes, filters, textures).",
+  "areas": ["image", "game", "web", "video", "model3d", "android", "windows", "general"],
+  "packTypes": ["image"],
+  "commands": [
+    { "usage": "studio-image new <file.image.yaml> [--template poster|icon|pixel|texture|banner|blank]", "description": "create a starter picture" },
+    { "usage": "studio-image check <picture>", "description": "validate fast (names, options, files, fonts)" },
+    { "usage": "studio-image render <picture> [--preview] [--scale 0.5]", "description": "render to exports/ (+ the picture's export list) and a preview PNG to look at" },
+    { "usage": "studio-image info <image file>", "description": "size, transparency, brightness and main colors of any image" },
+    { "usage": "studio-image palette <image file> [--colors 8]", "description": "the main colors of an image as hex" },
+    { "usage": "studio-image convert <image file> [--to png|jpg|webp] [--width W] [--height H] [--pixel]", "description": "resize / convert an image" },
+    { "usage": "studio-image sheet <images…> [--cols N] [--out exports/sheet.png]", "description": "pack images into a sprite sheet + atlas JSON" },
+    { "usage": "studio-image list [shapes|textures|filters|fonts|blends] [words]", "description": "what pictures can use (built-ins, plugins) with parameters" },
+    { "usage": "studio-image plugin new <name> [--kind shape|filter|texture]", "description": "extend the tool with your own Python (plugins/image/)" },
+    { "usage": "studio-image docs", "description": "full picture format reference" }
+  ],
+  "formats": [
+    { "ext": ".image.yaml", "description": "picture: image/layers/filters/export (studio-image docs)" },
+    { "ext": "plugins/image/*.py", "description": "shape/filter/texture plugins (studio_image.api)" }
+  ],
+  "docs": "README.md"
+}

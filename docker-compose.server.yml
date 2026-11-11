@@ -1,0 +1,27 @@
+# Everything Studio on a PUBLIC web server — used together with docker-compose.yml:
+#
+#   cp .env.server.example .env        # then edit: domain, e-mail, admin account
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --build
+#   (or put COMPOSE_FILE=docker-compose.yml:docker-compose.server.yml into .env and use plain
+#    `docker compose …` — .env.server.example does that)
+#
+# What it changes:
+#   * ports 80 and 443 of EVERY address of the server (IPv4 and IPv6) go to the websites and their
+#     HTTPS — certificates need port 80 reachable, and a domain with an AAAA record is checked
+#     over IPv6 by the certificate authority
+#   * the Studio's own port (8080) stays on the server itself (127.0.0.1): people reach the Studio
+#     over HTTPS under STUDIO_DOMAIN on port 443 — for maintenance use an SSH tunnel:
+#       ssh -L 8080:127.0.0.1:8080 you@server   →   http://localhost:8080
+# Needs Docker Compose v2.24 or newer (`!override`).
+services:
+  studio:
+    ports: !override
+      - "127.0.0.1:${STUDIO_PORT:-8080}:8080"
+      - "80:8081"
+      - "443:8443"
+    environment:
+      # the addresses shown to users (http://name.example.com, https://…) use the real ports
+      SITES_PORT: "80"
+      SITES_HTTPS_PORT: "443"
+      # cookies only over HTTPS
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}

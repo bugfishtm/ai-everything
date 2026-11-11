@@ -1,0 +1,13 @@
+{
+  "texture": {
+    "type": "checker",
+    "colors": [
+      "#d9d4c7",
+      "#3b4252"
+    ],
+    "size": 64,
+    "resolution": 128
+  },
+  "roughness": 0.25,
+  "texture_scale": 2
+}

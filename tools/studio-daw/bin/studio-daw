@@ -1,0 +1,12 @@
+#!/opt/venv/bin/python3
+"""studio-daw — make music from text. Run `studio-daw --help`."""
+import os
+import sys
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))  # the tool folder (studio_daw package)
+
+from studio_daw.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    main()

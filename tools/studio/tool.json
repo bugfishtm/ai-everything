@@ -1,0 +1,129 @@
+{
+  "id": "studio",
+  "name": "Studio CLI (library, packs, skills, servers, websites, releases, WordPress)",
+  "version": "1.2.0",
+  "description": "Search, import and save assets in the Studio asset library (the user's own library plus the Global Space), use packs, read and save skills (the user's know-how for recurring tasks), deploy/control Node.js servers (multiplayer, storage, APIs) for the project's apps, and publish web apps and games as websites on the user's domains (with HTTPS certificates); make numbered releases of the project (version, changelog, git tag, kept exports) and work with the project's WordPress (own plugins and themes from starters, exports, PHP log).",
+  "areas": [
+    "*"
+  ],
+  "commands": [
+    {
+      "usage": "studio lib search <words> [--kind model3d|image|audio|music|video|font|code] [--scope all|mine|global] [--limit N]",
+      "description": "find reusable assets"
+    },
+    {
+      "usage": "studio lib info <asset-id>",
+      "description": "files, description and tags of an asset"
+    },
+    {
+      "usage": "studio lib get <asset-id> [--to <folder>]",
+      "description": "copy an asset into this project (default: assets/library/<name>)"
+    },
+    {
+      "usage": "studio lib add <paths…> --name \"Name\" [--kind K] [--tags a,b] [--desc \"…\"] [--main <file>]",
+      "description": "save project files/folders as a new asset in the user's library"
+    },
+    {
+      "usage": "studio packs search <words> [--type music|3d] [--kind instrument|sample|model|material|plugin …]",
+      "description": "find instruments, samples, models, materials … in installed packs (reference: pack-id/item-id)"
+    },
+    {
+      "usage": "studio packs show <pack-id>",
+      "description": "all items of a pack with details"
+    },
+    {
+      "usage": "studio packs path <pack-id>/<item-id>",
+      "description": "absolute file path of a pack item"
+    },
+    {
+      "usage": "studio packs new <id> --type music|3d|…",
+      "description": "scaffold a new pack in packs/<id>/ of the project"
+    },
+    {
+      "usage": "studio packs install packs/<id>",
+      "description": "validate + install a project pack as the user's personal pack"
+    },
+    {
+      "usage": "studio skill list [--all]",
+      "description": "the user's skills for this area — know-how to load before a matching task"
+    },
+    {
+      "usage": "studio skill show <name>",
+      "description": "read a skill (then follow it)"
+    },
+    {
+      "usage": "studio skill new <name> · studio skill save <SKILL.md>",
+      "description": "write a workflow down as a skill and save it for the user (they call it with /name)"
+    },
+    {
+      "usage": "studio whoami",
+      "description": "current user and project"
+    },
+    {
+      "usage": "studio tools",
+      "description": "list the Studio tools installed in this environment"
+    },
+    {
+      "usage": "studio service new [--template multiplayer|storage|basic] [--dir server]",
+      "description": "Node.js server for the app (multiplayer, saves, leaderboards, APIs) — from a template"
+    },
+    {
+      "usage": "studio service deploy [<dir>]",
+      "description": "deploy/redeploy the server: copy, npm install, (re)start; prints the public URL and log"
+    },
+    {
+      "usage": "studio service status | logs [--tail N] | restart | stop | start",
+      "description": "control the project's server"
+    },
+    {
+      "usage": "studio service env KEY=value … [--unset KEY]",
+      "description": "environment variables (secrets) of the server"
+    },
+    {
+      "usage": "studio site publish [--root dist] [--build \"npm run build\"] [--spa]",
+      "description": "publish the project as a website (new release, prints the addresses); options are saved"
+    },
+    {
+      "usage": "studio site status",
+      "description": "website addresses, release, settings and the last publish log"
+    },
+    {
+      "usage": "studio site domain add|remove <domain…> | check",
+      "description": "domains of the website (DNS A/AAAA → this server); check tests that they reach the Studio"
+    },
+    {
+      "usage": "studio site set [--root …] [--build \"…\"] [--spa|--no-spa] [--name <name>] · studio site offline|online",
+      "description": "website settings, take it offline / back online"
+    },
+    {
+      "usage": "studio site cert [issue] [<domain>]",
+      "description": "HTTPS certificate of each domain (issuer, days left, errors); issue = request/renew now"
+    },
+    {
+      "usage": "studio release status",
+      "description": "the project's version, its releases and what changed since the last one"
+    },
+    {
+      "usage": "studio release patch|minor|major|<x.y.z> [--notes \"…\"] [--title \"…\"] [--no-exports]",
+      "description": "make a numbered release when the user asks for one: VERSION, CHANGELOG.md, git tag, a copy of exports/"
+    },
+    {
+      "usage": "studio wp status",
+      "description": "WordPress projects: is it installed, its address, the own plugins and themes"
+    },
+    {
+      "usage": "studio wp new plugin|theme <slug> [--name \"…\"] [--template basic|settings|block|rest · block|classic]",
+      "description": "start an own plugin or theme from a starter (in plugins/<slug> or themes/<slug>, linked into WordPress)"
+    },
+    {
+      "usage": "studio wp export <slug> · studio wp log [--tail N] · studio wp login-url [--to /wp-admin/…] · studio wp link · studio wp restart",
+      "description": "installable zip of an own module, the PHP error log, a signed-in admin address for checks, re-link modules, restart PHP"
+    }
+  ],
+  "mcp": {
+    "studio": {
+      "command": "studio-mcp"
+    }
+  },
+  "docs": "README.md"
+}

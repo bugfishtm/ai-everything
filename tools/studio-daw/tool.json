@@ -1,0 +1,76 @@
+{
+  "id": "studio-daw",
+  "name": "Studio DAW",
+  "version": "0.3.0",
+  "description": "Text-based music production: songs are YAML (instruments, note/chord/grid patterns, arrangement, mix with effects and automation) rendered to WAV/MP3/MIDI with a spectrogram preview and a loudness report. Plays built-in synths, samples, SoundFont presets and pack instruments; imports MIDI files; makes one-shot sound effects for games; extensible with Python plugins. Users can open the same songs in the website's visual DAW (edits are written back into the YAML).",
+  "areas": [
+    "music",
+    "game",
+    "video",
+    "general"
+  ],
+  "packTypes": [
+    "music"
+  ],
+  "commands": [
+    {
+      "usage": "studio-daw new <file.song.yaml> [--template basic|gm|ambient|lofi|chiptune|house]",
+      "description": "create a starter song"
+    },
+    {
+      "usage": "studio-daw check <song>",
+      "description": "validate fast (bar lengths, names, parameters)"
+    },
+    {
+      "usage": "studio-daw render <song> [--preview] [--stems] [--midi] [--from BAR --to BAR]",
+      "description": "render to exports/ + report (+ spectrogram PNG to look at)"
+    },
+    {
+      "usage": "studio-daw midi <song>",
+      "description": "MIDI export: tempo map, GM programs, drums on channel 10"
+    },
+    {
+      "usage": "studio-daw export <song> --what wav,mp3,midi,stems [--zip]",
+      "description": "exports for other DAWs; --zip bundles them with the song text and used plugins/samples"
+    },
+    {
+      "usage": "studio-daw import <file.mid> [--out FILE] [--bars 4] [--quantize 16] [--synths]",
+      "description": "MIDI file → song text (tracks, patterns, sections)"
+    },
+    {
+      "usage": "studio-daw sfx [list | <name>,… | all] [--pitch 1] [--dur 1] [--variants N] [--out DIR]",
+      "description": "one-shot sound effects for games and videos (coin, jump, hit, explosion …)"
+    },
+    {
+      "usage": "studio-daw instruments [words]",
+      "description": "built-in, plugin and pack instruments with parameters"
+    },
+    {
+      "usage": "studio-daw effects",
+      "description": "effects and parameters (incl. automate: fades, pans and filter sweeps along the song)"
+    },
+    {
+      "usage": "studio-daw analyze <audio> [--preview]",
+      "description": "loudness, peak and spectrum of any audio file"
+    },
+    {
+      "usage": "studio-daw plugin new <name> [--kind instrument|effect]",
+      "description": "extend the DAW with your own Python instrument/effect (plugins/daw/)"
+    },
+    {
+      "usage": "studio-daw docs",
+      "description": "full song format reference"
+    }
+  ],
+  "formats": [
+    {
+      "ext": ".song.yaml",
+      "description": "song: song/instruments/patterns/arrangement/mix/master (studio-daw docs)"
+    },
+    {
+      "ext": "plugins/daw/*.py",
+      "description": "instrument/effect plugins (studio_daw.api)"
+    }
+  ],
+  "docs": "README.md"
+}

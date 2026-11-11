@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide — Everything Studio</title>
+<meta name="description" content="How to use Everything Studio: areas, projects, connecting an AI, the DAW, the 3D editor, versioning, websites, WordPress, library, skills and administration.">
+<meta name="theme-color" content="#090b10">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Guide — Everything Studio">
+<meta property="og:description" content="How to use Everything Studio: areas, projects, connecting an AI, the DAW, the 3D editor, versioning, websites, WordPress, library, skills and administration.">
+<meta property="og:image" content="assets/img/dashboard.webp">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.svg" alt="" width="30" height="30">
+      <span>Everything Studio<small>ai-everything</small></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <nav class="nav-links" aria-label="Main">
+      <a href="index.html">Overview</a><a href="install.html">Install</a><a href="server.html">Server &amp; HTTPS</a><a href="guide.html" aria-current="page">Guide</a><a href="config.html">Configuration</a>
+      <a class="gh" href="https://github.com/bugfishtm/ai-everything" rel="noopener">GitHub <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+<div class="page-head"><div class="wrap">
+  <h1>Guide</h1>
+  <p>What the Studio does and how to use it — projects, the editors, versions, websites, WordPress and the admin area.</p>
+</div></div>
+<div class="wrap doc">
+  <aside class="toc" aria-label="On this page"><b>On this page</b><a href="#the-idea">The idea</a><a href="#the-areas">The areas</a><a href="#working-in-a-project">Working in a project</a><a href="#connecting-an-ai">Connecting an AI</a><a href="#finding-your-projects">Finding your projects</a><a href="#history-and-versions">History and versions</a><a href="#music-the-daw">Music: the DAW</a><a href="#3d-the-editor">3D: the editor</a><a href="#images-video-and-animation">Images, video and animation</a><a href="#games-apps-and-their-servers">Games, apps and their servers</a><a href="#websites">Websites</a><a href="#wordpress">WordPress</a><a href="#library-packs-and-skills">Library, packs and skills</a><a href="#chat">Chat</a><a href="#for-administrators">For administrators</a><a href="#the-studio-command">The studio command</a></aside>
+  <article class="prose">
+<h2 id="the-idea">The idea<a class="anchor" href="#the-idea" aria-label="Link to this section">#</a></h2>
+
+<p>You describe what you want; an AI coding agent builds it. The Studio is everything around that: a place per project, the tools the AI needs, editors for what it makes, and a way to keep, version and publish the results.</p>
+<ul>
+  <li><strong>Projects.</strong> Every project is a folder of its own with a chat, files, a terminal and a history. The AI works inside that folder and nowhere else.</li>
+  <li><strong>Text first.</strong> Songs, 3D scenes, pictures and videos are human-readable text files. Text is the source of truth — you and the AI can read it, change it and compare versions. The audio, image and model files are rendered from it.</li>
+  <li><strong>Your own AI account.</strong> The Studio does not include an AI and does not resell one. Each person connects their own Claude account (or another AI the admin switched on), under that provider's terms.</li>
+</ul>
+
+<h2 id="the-areas">The areas<a class="anchor" href="#the-areas" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Area</th><th>You get</th><th>Made with</th></tr></thead><tbody><tr><td>Music</td><td>Songs, loops, sound effects as WAV, MP3, MIDI, stems</td><td><code>studio-daw</code> — songs as text, the DAW in the browser</td></tr><tr><td>Image</td><td>Posters, icons, textures, pixel art as PNG, JPG, WebP, ICO</td><td><code>studio-image</code> — layers of shapes, text and textures</td></tr><tr><td>3D Models</td><td>Props and scenes as .glb, .obj, .stl, .ply</td><td><code>studio-3d</code> — scenes as text, the 3D editor</td></tr><tr><td>Video</td><td>Trailers, slideshows, shorts, stick-figure animation as MP4</td><td><code>studio-video</code>, <code>studio-stickman</code></td></tr><tr><td>JS Games</td><td>Browser games, playable at once</td><td>HTML5, canvas, WebGL, three.js, Phaser</td></tr><tr><td>Android Apps</td><td>Installable APKs</td><td>Kotlin, Jetpack Compose, Gradle, the Android SDK</td></tr><tr><td>Windows Software</td><td>.exe programs and installers</td><td>.NET (console, WinForms, WPF), C/C++ with mingw-w64, NSIS</td></tr><tr><td>Web Apps</td><td>Websites and tools with a live preview</td><td>HTML, CSS, JavaScript, Vite</td></tr><tr><td>WordPress</td><td>A running WordPress site, plugins, themes, blocks</td><td>PHP, WP-CLI, starters for modules</td></tr><tr><td>Anything Else</td><td>Scripts, documents, research</td><td>Everything in the image</td></tr></tbody></table></div>
+<p>Each area has ideas to start from, a project template and its own instructions for the AI. The area page also lists the tools and skills the AI brings there.</p>
+
+<h2 id="working-in-a-project">Working in a project<a class="anchor" href="#working-in-a-project" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Synthwave Poster · exports/poster.png</span></div><img src="assets/img/workspace.webp" alt="A project with the file tree on the left and a rendered poster in the viewer" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Files on the left, tabs for chat, terminals and opened files on the right</figcaption></figure><div class="table-wrap"><table><thead><tr><th>Tab</th><th>What it is for</th></tr></thead><tbody><tr><td>Chat</td><td>Talk to the AI. You see its text, its thinking, every command and file change as it happens — and a saved version after every turn.</td></tr><tr><td>AI terminal</td><td>The AI's own interactive program (Claude Code, or <code>codex</code>, <code>gemini</code>, <code>opencode</code>) in the project folder.</td></tr><tr><td>Shell</td><td>A terminal in your own account on the server — for <code>git</code>, <code>npm</code>, <code>wp</code>, the Studio tools.</td></tr><tr><td>Preview / Play</td><td>Web apps and games in a sandboxed frame.</td></tr><tr><td>Server</td><td>The project's Node.js backend: status, live log, environment, restart, rollback.</td></tr><tr><td>Website</td><td>Publish, addresses, domains and HTTPS.</td></tr><tr><td>WordPress</td><td>The site of a WordPress project: set up, open, plugins, themes, tools.</td></tr><tr><td>History</td><td>Releases (versions with numbers) and every single change — each can be restored.</td></tr><tr><td>Files</td><td>Open, edit, upload, download. Images, audio, video, 3D models, Markdown and code have viewers; songs open in the DAW, scenes in the 3D editor.</td></tr></tbody></table></div>
+<h4>How much the AI may do on its own</h4>
+<div class="table-wrap"><table><thead><tr><th>Mode</th><th>Meaning</th></tr></thead><tbody><tr><td>Autonomous</td><td>The AI works without asking. It runs in your sandbox account and can only reach your own files.</td></tr><tr><td>Ask for commands</td><td>File edits happen; commands need your OK in the chat.</td></tr><tr><td>Ask for everything</td><td>Every change and command is shown for approval.</td></tr><tr><td>Plan only</td><td>The AI reads and plans, and changes nothing.</td></tr></tbody></table></div><p>The mode is set per project (top bar, or project settings) — together with the AI and the model for new chats.</p>
+<h2 id="connecting-an-ai">Connecting an AI<a class="anchor" href="#connecting-an-ai" aria-label="Link to this section">#</a></h2>
+
+<p><em>Account &amp; AI</em> is where each person connects their own accounts.</p>
+<h4>Claude</h4>
+<ul>
+  <li><strong>Sign in to Claude Code</strong> (Claude Pro, Max, Team): Claude Code's own sign-in runs in a terminal in your browser, you approve it on Anthropic's site. The login is kept by Claude Code in your private account on the server — the Studio never sees or stores subscription credentials.</li>
+  <li><strong>API key</strong> from the Anthropic Console, stored encrypted and billed to you.</li>
+</ul>
+<p>The sidebar shows how much of your plan's limits is used; <em>Account → Usage</em> has the details per day, project and AI.</p>
+<h4>Other AIs</h4>
+<p>An administrator can switch on more under <em>Admin → AI providers</em>. They behave like Claude in the chat — streaming text, tool calls, approvals, a saved version after every turn.</p>
+<div class="table-wrap"><table><thead><tr><th>AI</th><th>Connect with</th></tr></thead><tbody><tr><td>OpenAI Codex</td><td>“Sign in with ChatGPT” or an OpenAI API key</td></tr><tr><td>Google Gemini</td><td>“Sign in with Google” or a Gemini API key</td></tr><tr><td>OpenCode</td><td>API keys of many providers (OpenAI, Google, OpenRouter, Groq, Mistral, DeepSeek, xAI …) or its own sign-ins</td></tr><tr><td>Any ACP agent</td><td>Whatever the agent supports — admins add its command</td></tr></tbody></table></div><p>A project has an AI for its new chats; every chat keeps the AI it started with.</p>
+<h2 id="finding-your-projects">Finding your projects<a class="anchor" href="#finding-your-projects" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Everything Studio · Projects</span></div><img src="assets/img/projects.webp" alt="The Projects page as a list with area, version, online state and dates" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>The list view of all projects</figcaption></figure>
+<ul>
+  <li><strong>Cards or a list</strong> with details — version, website and servers, chats, last opened, created.</li>
+  <li><strong>Search</strong> by name, description, area or version; <strong>sort</strong> by last opened, last changed, name, newest, oldest or version.</li>
+  <li><strong>Pin</strong> what you are working on to the top. <strong>Archive</strong> what is done — it leaves the list and stays one click away.</li>
+  <li>Right-click a project (or use the ⋯ button) to rename or delete it. Deleted projects stay in a trash for a few days.</li>
+</ul>
+
+<h2 id="history-and-versions">History and versions<a class="anchor" href="#history-and-versions" aria-label="Link to this section">#</a></h2>
+
+<p>Two things, both in the project's <em>History</em> tab:</p>
+<ul>
+  <li><strong>Every change</strong> — the project is a git repository, and the Studio saves a checkpoint after every AI turn. Any of them can be restored; the current state is saved first, so nothing is lost.</li>
+  <li><strong>Releases</strong> — versions with numbers. Switch <em>Versioning</em> on when you create a project (it is preselected for apps, games, websites and WordPress) or later in this tab.</li>
+</ul>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Snake Deluxe · History</span></div><img src="assets/img/releases.webp" alt="Three releases of a project with notes and download buttons" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Releases: notes, the files as they were, the exports as they were</figcaption></figure>
+<p>A versioned project carries a <code>VERSION</code> file and a <code>CHANGELOG.md</code>. <em>New release</em> gives the current state the next number:</p>
+<div class="table-wrap"><table><thead><tr><th>Step</th><th>For</th><th>Example</th></tr></thead><tbody><tr><td>Patch</td><td>Fixes</td><td>1.2.0 → 1.2.1</td></tr><tr><td>Minor</td><td>New features</td><td>1.2.1 → 1.3.0</td></tr><tr><td>Major</td><td>Big or breaking changes</td><td>1.3.0 → 2.0.0</td></tr><tr><td>Your own number</td><td>Anything, also pre-releases</td><td>2.0.0-beta.1</td></tr></tbody></table></div><figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Snake Deluxe · New release</span></div><img src="assets/img/release-dialog.webp" alt="The New release dialog" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>A new release: pick the number, write what is new</figcaption></figure>
+<p>A release writes the version file, moves what was noted under “Unreleased” into the changelog entry, tags the state in the history, and keeps a copy of <code>exports/</code> — the APK, the .exe, the song. Later you can download the project files or the exports of any release, or restore it.</p>
+<p>The AI knows about it: “release version 1.3 with these notes” works in the chat (it runs <code>studio release minor</code>).</p>
+
+<h2 id="music-the-daw">Music: the DAW<a class="anchor" href="#music-the-daw" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Night Drive · night-drive.song.yaml</span></div><img src="assets/img/daw.webp" alt="The DAW with arrangement, step grid and on-screen pads" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>A song is a text file — and a DAW</figcaption></figure>
+<p>Open a <code>.song.yaml</code> file, or click <em>DAW</em> in a project. The song stays a text file; every edit changes only the lines it touches.</p>
+<ul>
+  <li><strong>Arrangement</strong>: sections across, patterns down. Click a cell to play a pattern in a section; drag on the ruler to loop a range.</li>
+  <li><strong>Piano roll</strong> for melodies and chords (draw, move, resize, copy, quantize, velocities, scale tint) and a <strong>step grid</strong> for drums.</li>
+  <li><strong>Mixer</strong> with faders, pan, mute/solo, effect chains and level meters; <strong>Instruments</strong> with a knob for every parameter.</li>
+  <li><strong>Live</strong> plays as you edit; <strong>Rendered</strong> plays the exact mix with all effects and mastering.</li>
+  <li><strong>Export</strong>: WAV, MP3, MIDI, stems, or one zip with everything. <strong>Open</strong> imports a <code>.mid</code> file as a new song.</li>
+</ul>
+<h4>Playing and recording</h4>
+<p>Click the keyboard button to open the on-screen keyboard (pads for drum tracks). Play the armed track with the mouse, with your computer keys, or with a MIDI keyboard — connect it with the <em>MIDI</em> button. <em>Record</em> writes what you play into the piano roll or the step grid; one undo removes a take.</p>
+<div class="table-wrap"><table><thead><tr><th>Key</th><th>Does</th></tr></thead><tbody><tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr><tr><td><kbd>Home</kbd></td><td>Back to the start (or the loop start)</td></tr><tr><td><kbd>R</kbd></td><td>Record on / off, into the armed track</td></tr><tr><td><kbd>M</kbd> · <kbd>L</kbd></td><td>Metronome · loop (L while Typing is off)</td></tr><tr><td><kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd> <kbd>D</kbd> <kbd>F</kbd> …</td><td>Play notes (Typing on): the home row is the white keys</td></tr><tr><td><kbd>Z</kbd> / <kbd>X</kbd> · <kbd>C</kbd> / <kbd>V</kbd></td><td>Octave down / up · softer / louder</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Undo · redo</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd> · <kbd>?</kbd></td><td>Save · all shortcuts</td></tr></tbody></table></div><div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><p>MIDI keyboards need a browser with Web MIDI (Chrome, Edge, Firefox) and a page served over HTTPS or from <code>localhost</code>.</p></div></div>
+<h2 id="3d-the-editor">3D: the editor<a class="anchor" href="#3d-the-editor" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Coral Reef Props · reef.scene.yaml</span></div><img src="assets/img/editor3d.webp" alt="The 3D editor with an object list, the view and the object panel" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Scenes are text; the editor changes that text</figcaption></figure>
+<p>Open a <code>.scene.yaml</code> file, or click <em>3D editor</em>. Drag to look around, right-drag to pan, wheel to zoom; <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> move, rotate and scale the selection, <kbd>F</kbd> looks at it.</p>
+<ul>
+  <li><strong>Objects</strong>: boxes, spheres, lofts and blobs for organic forms, groups, repeats and scatters, booleans, modifiers.</li>
+  <li><strong>Materials and textures</strong>: colours, image files, procedural textures, with several ways to map them.</li>
+  <li><strong>Build</strong> writes the <code>.glb</code> (also .obj, .stl, .ply) into <code>exports/</code>, with a four-view preview.</li>
+</ul>
+
+<h2 id="images-video-and-animation">Images, video and animation<a class="anchor" href="#images-video-and-animation" aria-label="Link to this section">#</a></h2>
+
+<p>The same principle, without a visual editor yet — the AI writes the text, the tool renders it, and you see the result in the file viewer:</p>
+<div class="table-wrap"><table><thead><tr><th>File</th><th>Tool</th><th>Result</th></tr></thead><tbody><tr><td><code>*.image.yaml</code></td><td><code>studio-image</code></td><td>Pictures from layers, shapes, text, textures and pixel art → PNG, JPG, WebP, ICO</td></tr><tr><td><code>*.video.yaml</code></td><td><code>studio-video</code></td><td>Timelines of clips, pictures, title cards, transitions, subtitles and a soundtrack → MP4</td></tr><tr><td><code>*.stick.yaml</code></td><td><code>studio-stickman</code></td><td>Stick-figure scenes with poses, actions, props and sound → MP4 and sprite sheets</td></tr></tbody></table></div>
+<p>In the file tree, right-click a folder → <em>New song / 3D scene / stick animation / picture / video</em> starts a file from a template, ready to render. The video tool pulls the others in: a timeline can contain a stick scene, a picture and a song, and renders them on demand.</p>
+
+<h2 id="games-apps-and-their-servers">Games, apps and their servers<a class="anchor" href="#games-apps-and-their-servers" aria-label="Link to this section">#</a></h2>
+
+<ul>
+  <li><strong>Games and web apps</strong> run in the <em>Preview</em> (or <em>Play</em>) tab in a sandboxed frame. The AI checks its own work in a headless browser — screenshots and console output.</li>
+  <li><strong>Android apps</strong> are built with Gradle into a debug APK in <code>exports/</code>. An administrator installs the Android SDK once (<em>Admin → Android SDK</em>).</li>
+  <li><strong>Windows software</strong> is cross-compiled: .NET for console, WinForms and WPF programs, mingw-w64 for C and C++, NSIS for installers.</li>
+</ul>
+<h4>A backend for your app</h4>
+<p>When an app needs multiplayer, cloud saves, a leaderboard or an API, the AI writes a Node.js server in the project's <code>server/</code> folder and the Studio runs it — no other hosting needed. It is reachable at <code>&lt;Studio address&gt;/srv/&lt;name&gt;/</code> over HTTP and WebSocket. The <em>Server</em> tab shows status, live log, environment variables, restart and rollback; the <em>Servers</em> page lists all of yours.</p>
+
+<h2 id="websites">Websites<a class="anchor" href="#websites" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Pomodoro Timer · Website</span></div><img src="assets/img/website.webp" alt="The Website tab with addresses, publish button and domains" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>A published project: addresses, domains, HTTPS per domain</figcaption></figure>
+<p>Web apps and games become real websites from the project's <em>Website</em> tab — or by telling the AI “put it online”.</p>
+<ul>
+  <li><strong>Publish</strong> copies the finished files into a new release. The live site changes only when you publish again; the last three releases can be rolled back to.</li>
+  <li><strong>Addresses</strong>: <code>&lt;name&gt;.localhost:8081</code> on the Studio's computer, <code>&lt;name&gt;.&lt;base domain&gt;</code> when the server has one, and your <strong>own domains</strong>.</li>
+  <li><strong>Domains</strong>: add one, create its A record (AAAA for IPv6) pointing to the server, press <em>Check</em>. HTTPS per domain: automatic, your own certificate, self-signed or off.</li>
+  <li>A website and the project's servers share one origin: <code>fetch("/srv/&lt;server&gt;/…")</code> works without CORS.</li>
+</ul>
+<p>How the server side is set up: <a href="server.html">Server &amp; HTTPS</a>.</p>
+
+<h2 id="wordpress">WordPress<a class="anchor" href="#wordpress" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Corner Bakery · WordPress</span></div><img src="assets/img/wordpress.webp" alt="The WordPress tab with the site and its own modules" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>The WordPress tab</figcaption></figure>
+<p>A project of the WordPress area holds a real WordPress site and the code you write for it.</p>
+<ol>
+  <li><strong>Set it up</strong> in the <em>WordPress</em> tab: title, admin user, language. The current WordPress is downloaded, gets its own database and its own address, and is switched on.</li>
+  <li><strong>Open it</strong>: <em>Open site</em>, and <em>Open admin</em> — which signs you in without a password.</li>
+  <li><strong>Build for it</strong>: <em>New plugin</em> or <em>New theme</em> starts from working code, or just tell the AI what you need.</li>
+  <li><strong>Export</strong> an installable zip for any other WordPress.</li>
+</ol>
+<div class="table-wrap"><table><thead><tr><th>Starter</th><th>Gives you</th></tr></thead><tbody><tr><td>Plugin · basic</td><td>Main file, activation hooks, a shortcode</td></tr><tr><td>Plugin · settings page</td><td>Admin menu, Settings API, options, front-end output</td></tr><tr><td>Plugin · block</td><td>A Gutenberg block without a build step</td></tr><tr><td>Plugin · post type + REST</td><td>A custom post type and an own REST endpoint</td></tr><tr><td>Theme · block</td><td>Full-site editing: theme.json, templates, parts</td></tr><tr><td>Theme · classic</td><td>PHP templates: header, footer, index, functions</td></tr></tbody></table></div>
+<p>Your modules live in the project's <code>plugins/</code> and <code>themes/</code> folders — versioned with the project and linked into the site, so a change is live at once. The installation itself (<code>wordpress/</code>) is not versioned.</p>
+<p>The same tab manages installed plugins and themes (with a search of wordpress.org), WordPress updates, the PHP error log and debug mode, a new admin password, a database export, and removing the site. Domains and HTTPS are in the <em>Website</em> tab, as for any website.</p>
+<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><p>The site's PHP runs as your account, can only reach the project folder and has no shell functions. Sending e-mail needs an SMTP plugin — the image has no mail server.</p></div></div>
+<h2 id="library-packs-and-skills">Library, packs and skills<a class="anchor" href="#library-packs-and-skills" aria-label="Link to this section">#</a></h2>
+
+<ul>
+  <li><strong>My library</strong> — save what you made (a model, a sprite, a sound, a song) as a reusable asset; the AI searches it before creating something new. <strong>Global Space</strong> is what everyone on this Studio published.</li>
+  <li><strong>Packs</strong> — expansion content for the Studio software: instruments, samples, drum kits, synth presets, models, materials, plugins. Four are built in; you and the AI can make more.</li>
+  <li><strong>Skills &amp; instructions</strong> — a skill is know-how for a recurring task (“how we build a WordPress plugin”, “how a song gets mixed”) that the AI loads when a task matches, or when you start a message with <code>/name</code>. Instructions always apply — for everything, or per area.</li>
+</ul>
+
+<h2 id="chat">Chat<a class="anchor" href="#chat" aria-label="Link to this section">#</a></h2>
+
+<p>The <em>Chat</em> page is for plain conversations — questions, ideas, writing help. The AI can read attachments and search the web there, but changes nothing. When a conversation turns into something to build, start a project.</p>
+
+<h2 id="for-administrators">For administrators<a class="anchor" href="#for-administrators" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Everything Studio · Admin</span></div><img src="assets/img/admin.webp" alt="The administration page: users and the toolchains of the image" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Admin: users, system, toolchains</figcaption></figure><div class="table-wrap"><table><thead><tr><th>Section</th><th>What you do there</th></tr></thead><tbody><tr><td>Users</td><td>Add people, reset passwords, disable or delete accounts, open or close registration</td></tr><tr><td>System</td><td>Version, isolation, what the image contains</td></tr><tr><td>Claude Code</td><td>The installed version and its update</td></tr><tr><td>AI providers</td><td>Switch on Codex, Gemini, OpenCode; add your own ACP agent</td></tr><tr><td>Android SDK</td><td>Install it after accepting Google's license</td></tr><tr><td>HTTPS &amp; certificates</td><td>Automatic certificates, the Studio's own domain, wildcard uploads, every certificate</td></tr><tr><td>Servers · Websites</td><td>Everything that runs and is online, with a stop switch</td></tr><tr><td>Usage by user</td><td>Who used how much</td></tr><tr><td>Instructions for every AI</td><td>House rules that apply to all users</td></tr></tbody></table></div><p>A disabled account cannot log in, and nothing of it keeps running — AI runs, terminals, servers and websites stop.</p>
+<h2 id="the-studio-command">The studio command<a class="anchor" href="#the-studio-command" aria-label="Link to this section">#</a></h2>
+
+<p>Inside a project — in the Shell tab, and for the AI — the <code>studio</code> command reaches the Studio itself:</p>
+<div class="code"><div class="code-head"><span>Shell</span><button class="copy" type="button">Copy</button></div><pre><code>studio lib search fox --kind model3d        # find reusable assets
+studio lib add exports/fox.glb --name "Fox" # save one
+studio packs search piano --type music      # instruments, samples, models …
+studio service deploy                       # deploy the project's Node.js server
+studio site publish                         # publish as a website
+studio site domain add mygame.com           # domains, then: studio site cert
+studio release minor --notes "…"            # a numbered release
+studio wp new plugin opening-hours          # WordPress: an own plugin from a starter
+studio wp export opening-hours              # … and its installable zip
+studio skill list                           # know-how for this area
+studio help</code></pre></div>
+<div class="next"><a href="server.html"><small>Before</small>Server &amp; HTTPS</a><a href="config.html"><small>Next</small>Configuration</a></div>
+  </article>
+</div>
+</main>
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="index.html">
+          <img src="assets/img/logo.svg" alt="" width="30" height="30">
+          <span>Everything Studio<small>ai-everything</small></span>
+        </a>
+        <p>A self-hosted creative studio in one container: music, images, 3D, video, games, apps and WordPress — built by an AI that works with your own account.</p>
+      </div>
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="install.html">Install</a></li>
+          <li><a href="server.html">Server &amp; HTTPS</a></li>
+          <li><a href="guide.html">Guide</a></li>
+          <li><a href="config.html">Configuration</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/bugfishtm/ai-everything" rel="noopener">Source on GitHub</a></li>
+          <li><a href="https://hub.docker.com/r/bugfishtm/ai-everything" rel="noopener">Image on Docker Hub</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/issues" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="https://bugfishtm.github.io/privacy.html">Privacy</a></li>
+          <li><a href="https://bugfishtm.github.io/impressum.html">Impressum</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/LICENSE.md" rel="noopener">License (GPL-3.0)</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/LICENSES.md" rel="noopener">Third-party software</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>🐟 Bugfish · ai-everything is independent open-source software. It is not affiliated with or endorsed by Anthropic, OpenAI, Google or the WordPress Foundation. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+      <span><a href="https://bugfishtm.github.io/privacy.html">Privacy</a> · <a href="https://bugfishtm.github.io/impressum.html">Impressum</a></span>
+    </div>
+  </div>
+</footer>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>

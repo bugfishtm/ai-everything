@@ -1,0 +1,225 @@
+#!/usr/bin/env node
+'use strict';
+/**
+ * studio-mcp — MCP (stdio, JSON-RPC 2.0) server exposing the Studio asset
+ * library to Claude, plus the permission bridge used by the website's
+ * "ask before acting" modes (--permission-prompt-tool mcp__studio__permission_prompt).
+ */
+const readline = require('readline');
+const path = require('path');
+const { request, formatSearch, formatInfo, formatTools } = require('../lib/client.js');
+const packs = require('../lib/packs.js');
+
+const PROJECT_DIR = process.env.STUDIO_PROJECT_DIR || process.cwd();
+const KINDS = ['model3d', 'image', 'audio', 'music', 'video', 'font', 'code', 'document', 'other'];
+
+const TOOLS = [
+  {
+    name: 'library_search',
+    description:
+      "Search the Studio asset library: the user's own assets and the Global Space shared by all users (3D models, images, sounds, music, videos, fonts, code). Check it before creating assets from scratch.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'words matched against name, description and tags (empty = newest)' },
+        kind: { type: 'string', enum: KINDS },
+        scope: { type: 'string', enum: ['all', 'mine', 'global'], description: 'default all' },
+        limit: { type: 'integer', minimum: 1, maximum: 50 },
+      },
+    },
+  },
+  {
+    name: 'library_info',
+    description: 'Show details of one library asset: description, tags, license and its file list.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string', description: 'asset id, e.g. ast_k3m9x2qp7v' } }, required: ['id'] },
+  },
+  {
+    name: 'library_get',
+    description: 'Copy a library asset into the current project. Returns the destination folder and the copied file paths.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'asset id' },
+        dest: { type: 'string', description: 'destination folder relative to the project root (default assets/library/<name>)' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'library_add',
+    description:
+      "Save files or folders of the current project as a new asset in the user's library, so it can be reused later (the user may publish it to the Global Space). Include text sources next to renders when possible.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paths: { type: 'array', items: { type: 'string' }, description: 'files/folders relative to the project root' },
+        name: { type: 'string' },
+        kind: { type: 'string', enum: KINDS },
+        description: { type: 'string' },
+        tags: { type: 'array', items: { type: 'string' } },
+        main: { type: 'string', description: 'main file (relative to the asset), e.g. tree.glb' },
+      },
+      required: ['paths', 'name'],
+    },
+  },
+  {
+    name: 'studio_tools',
+    description: 'List the Studio tools installed in this environment and how to use them.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'packs_list',
+    description:
+      'List installed packs (expansion content for studio-daw, studio-3d …: instruments, samples, kits, presets, models, materials, plugins). Items are referenced as pack-id/item-id in song and scene files.',
+    inputSchema: { type: 'object', properties: { type: { type: 'string', enum: ['music', '3d', 'image', 'video', 'general'] } } },
+  },
+  {
+    name: 'packs_search',
+    description: 'Search items inside all packs by words, e.g. "piano", "snare", "pine tree", "granite".',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        type: { type: 'string', enum: ['music', '3d', 'image', 'video', 'general'] },
+        kind: { type: 'string', description: 'instrument, drumkit, sample, kit, preset, plugin, model, prefab, material …' },
+        limit: { type: 'integer', minimum: 1, maximum: 100 },
+      },
+    },
+  },
+  {
+    name: 'pack_show',
+    description: 'Show one pack: description, docs path and every item with its kind, tags and details.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+  },
+  {
+    name: 'permission_prompt',
+    description: 'Internal: Everything Studio uses this to ask the user for permission. Never call it yourself.',
+    inputSchema: {
+      type: 'object',
+      properties: { tool_name: { type: 'string' }, input: { type: 'object' }, tool_use_id: { type: 'string' } },
+      required: ['tool_name'],
+    },
+  },
+];
+
+function text(t, isError = false) {
+  return { content: [{ type: 'text', text: t }], ...(isError ? { isError: true } : {}) };
+}
+
+async function callTool(name, args) {
+  args = args || {};
+  switch (name) {
+    case 'library_search': {
+      const qs = new URLSearchParams();
+      if (args.query) qs.set('q', String(args.query));
+      if (args.kind) qs.set('kind', String(args.kind));
+      if (args.scope) qs.set('scope', String(args.scope));
+      qs.set('limit', String(args.limit || 20));
+      return text(formatSearch(await request('GET', `/library/search?${qs}`)));
+    }
+    case 'library_info': {
+      const r = await request('GET', `/library/${encodeURIComponent(String(args.id || ''))}`);
+      return text(formatInfo(r.asset));
+    }
+    case 'library_get': {
+      const body = {};
+      if (args.dest) body.dest = path.resolve(PROJECT_DIR, String(args.dest));
+      const r = await request('POST', `/library/${encodeURIComponent(String(args.id || ''))}/import`, body);
+      return text(`Imported "${r.asset.name}" into ${r.dest}/ (main file: ${r.asset.mainFile || '-'})\n${r.files.join('\n')}`);
+    }
+    case 'library_add': {
+      const paths = Array.isArray(args.paths) ? args.paths : [args.paths];
+      const r = await request('POST', '/library', {
+        paths: paths.filter(Boolean).map((p) => path.resolve(PROJECT_DIR, String(p))),
+        name: String(args.name || ''),
+        kind: args.kind,
+        description: args.description,
+        tags: args.tags,
+        main: args.main,
+      });
+      return text(`Saved as ${r.asset.id} — "${r.asset.name}" [${r.asset.kind}], ${r.asset.files.length} file(s). The user can publish it to the Global Space on the website.`);
+    }
+    case 'studio_tools':
+      return text(formatTools(await request('GET', '/tools')));
+    case 'packs_list': {
+      const list = packs.allPacks().filter((p) => !args.type || p.manifest.type === args.type);
+      if (!list.length) return text('No packs installed.');
+      return text(list.map((p) => `${p.id} — ${p.manifest.name} [${p.manifest.type}, ${p.scope}; ${Object.entries(packs.kinds(p.items)).map(([k, n]) => `${n} ${k}`).join(', ')}]\n  ${(p.manifest.description || '').split('\n')[0]}`).join('\n'));
+    }
+    case 'packs_search': {
+      const res = packs.searchItems(String(args.query || ''), { type: args.type, kind: args.kind, limit: Number(args.limit) || 40 });
+      return text(res.length ? res.map(({ pack, item }) => `${pack.id}/${item.id}  [${item.kind}] ${item.name || ''}${item.tags && item.tags.length ? '  #' + item.tags.join(' #') : ''}`).join('\n') : 'No matching pack items.');
+    }
+    case 'pack_show': {
+      const { pack } = packs.resolveRef(String(args.id || ''));
+      const lines = [`${pack.id} — ${pack.manifest.name} [${pack.manifest.type}]`, pack.manifest.description || '', `folder: ${pack.dir}`];
+      if (pack.manifest.docs) lines.push(`docs: ${require('path').join(pack.dir, pack.manifest.docs)}`);
+      for (const it of pack.items) lines.push(`  ${pack.id}/${it.id}  [${it.kind}] ${it.name || ''}${it.meta ? '  ' + JSON.stringify(it.meta).slice(0, 160) : ''}`);
+      return text(lines.join('\n'));
+    }
+    case 'permission_prompt': {
+      if (process.env.STUDIO_MCP_PERMISSION_TOOL === '0') return text('Unknown tool: permission_prompt', true);
+      const decision = await request('POST', '/permission', { tool_name: String(args.tool_name || ''), input: args.input || {} });
+      return text(JSON.stringify(decision));
+    }
+    default:
+      return text(`Unknown tool: ${name}`, true);
+  }
+}
+
+function send(msg) {
+  process.stdout.write(JSON.stringify(msg) + '\n');
+}
+
+const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+rl.on('line', async (line) => {
+  if (!line.trim()) return;
+  let msg;
+  try {
+    msg = JSON.parse(line);
+  } catch {
+    return;
+  }
+  if (msg.id === undefined || msg.id === null) return; // notification
+  const reply = (result) => send({ jsonrpc: '2.0', id: msg.id, result });
+  try {
+    switch (msg.method) {
+      case 'initialize':
+        reply({
+          protocolVersion: (msg.params && msg.params.protocolVersion) || '2025-06-18',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'studio', version: '1.0.0' },
+          instructions:
+            'Everything Studio asset library. Search it before creating assets from scratch, import with library_get, and save reusable results with library_add.',
+        });
+        break;
+      case 'ping':
+        reply({});
+        break;
+      case 'tools/list':
+        // other AI agents (ACP) get permission questions over their own protocol, not through this tool
+        reply({ tools: process.env.STUDIO_MCP_PERMISSION_TOOL === '0' ? TOOLS.filter((t) => t.name !== 'permission_prompt') : TOOLS });
+        break;
+      case 'tools/call':
+        try {
+          reply(await callTool(msg.params && msg.params.name, msg.params && msg.params.arguments));
+        } catch (err) {
+          if (msg.params && msg.params.name === 'permission_prompt') {
+            reply(text(JSON.stringify({ behavior: 'deny', message: `Permission bridge error: ${err.message}` })));
+          } else reply(text(`Error: ${err.message}`, true));
+        }
+        break;
+      case 'resources/list':
+        reply({ resources: [] });
+        break;
+      case 'prompts/list':
+        reply({ prompts: [] });
+        break;
+      default:
+        send({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: `Method not found: ${msg.method}` } });
+    }
+  } catch (err) {
+    send({ jsonrpc: '2.0', id: msg.id, error: { code: -32603, message: err.message } });
+  }
+});
+rl.on('close', () => process.exit(0));

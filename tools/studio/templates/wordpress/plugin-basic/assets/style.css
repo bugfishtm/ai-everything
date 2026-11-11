@@ -1,0 +1,5 @@
+/* {{NAME}} — front-end styles */
+.{{SLUG}} {
+	padding: 0.75em 1em;
+	border-left: 4px solid currentColor;
+}

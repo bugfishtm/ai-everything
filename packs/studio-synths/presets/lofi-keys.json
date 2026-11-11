@@ -1,0 +1,1 @@
+{ "use": "epiano", "tine": 0.08, "decay": 1.1, "sustain": 0.2, "effects": [ { "use": "bitcrush", "bits": 10 }, { "use": "tremolo", "rate": 4.5, "depth": 0.15 } ] }

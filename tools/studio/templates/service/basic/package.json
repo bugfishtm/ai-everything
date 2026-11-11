@@ -1,0 +1,13 @@
+{
+  "name": "{{NAME}}-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HTTP JSON API for the app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

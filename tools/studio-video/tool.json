@@ -1,0 +1,25 @@
+{
+  "id": "studio-video",
+  "name": "Studio Video",
+  "version": "0.1.0",
+  "description": "Videos from text timelines: YAML with clips one after another (video files, pictures with zoom and pan, title cards, computed clips — and stick scenes, pictures and songs made by the other Studio tools, rendered automatically), transitions, text/picture overlays, subtitles (+ .srt) and a mixed soundtrack with ducking, rendered to MP4/GIF/WebM with a contact sheet to look at. Trailers, slideshows, shorts, explainers, music videos. Also inspects any media file (length, size, a contact sheet of its frames). Extensible with Python plugins (transitions, generators).",
+  "areas": ["video", "game", "music", "image", "general"],
+  "packTypes": ["video", "music", "image"],
+  "commands": [
+    { "usage": "studio-video new <file.video.yaml> [--template trailer|slideshow|social|blank]", "description": "create a starter timeline" },
+    { "usage": "studio-video check <video>", "description": "validate fast (files, times, names)" },
+    { "usage": "studio-video info <video>", "description": "the timeline as a table: what is shown and heard when" },
+    { "usage": "studio-video sheet <video> [--at T,T,…]", "description": "contact sheet PNG of the key moments — look at it before rendering" },
+    { "usage": "studio-video render <video> [--preview] [--draft] [--from T --to T] [--gif] [--webm]", "description": "render to exports/<name>.mp4 with sound (+ contact sheet PNG to look at)" },
+    { "usage": "studio-video probe <media file>", "description": "length, size, frame rate and sound of any video / audio / image file" },
+    { "usage": "studio-video frames <media file> [--count 12] [--at T,T,…]", "description": "contact sheet of a video file — see what footage contains" },
+    { "usage": "studio-video list [transitions|generators|fonts] [words]", "description": "what timelines can use (built-ins, plugins) with parameters" },
+    { "usage": "studio-video plugin new <name> [--kind transition|generator]", "description": "extend the tool with your own Python (plugins/video/)" },
+    { "usage": "studio-video docs", "description": "full timeline format reference" }
+  ],
+  "formats": [
+    { "ext": ".video.yaml", "description": "timeline: video/clips/overlays/subtitles/audio (studio-video docs)" },
+    { "ext": "plugins/video/*.py", "description": "transition/generator plugins (studio_video.api)" }
+  ],
+  "docs": "README.md"
+}

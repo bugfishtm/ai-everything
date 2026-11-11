@@ -1,0 +1,7 @@
+# Street lamp, 3 m
+objects:
+  - { name: base, shape: cylinder, radius: 0.14, height: 0.3, segments: 12, material: basic-3d/iron }
+  - { name: pole, shape: cylinder, radius: 0.05, height: 3, segments: 10, material: basic-3d/iron }
+  - { name: arm, shape: box, size: [0.5, 0.05, 0.05], position: [0.22, 2.9, 0], material: basic-3d/iron }
+  - { name: shade, shape: cone, radius: 0.22, height: 0.25, segments: 10, position: [0.45, 2.65, 0], material: basic-3d/iron }
+  - { name: bulb, shape: sphere, radius: 0.09, detail: 2, position: [0.45, 2.55, 0], material: lamp }

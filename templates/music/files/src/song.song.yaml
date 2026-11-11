@@ -1,0 +1,39 @@
+# First Song — studio-daw song (reference: studio-daw docs)
+song:
+  title: First Song
+  bpm: 96
+  time: 4/4
+  swing: 0.15        # 0 … 0.5, delays every second 16th
+  humanize: 0.3      # small timing/velocity variation
+
+instruments:
+  drums: { use: drums }                       # built-in synth kit
+  bass:  { use: bass, cutoff: 700, octave: 2 }
+  keys:  { use: epiano, octave: 4 }
+  pad:   { use: pad }
+
+patterns:
+  beat:
+    drums: |
+      kick:  x-------x-x-----
+      snare: ----x-------x---
+      hat:   x-x-x-x-x-x-xox-
+  groove:
+    bass: "A:q. A:e r:e E:e G:q | F:q. F:e r:e C3:e E:q | C3:q. C3:e r:e G:e C3:q | G:q. G:e r:e D3:e F#:q"
+    pad:  { chords: "Am7 | Fmaj7 | C | G" }
+  melody:
+    keys: "mf E5:q D5:e C5:e A4:h | C5:q A4:e G4:e F4:h | E4:q G4:e C5:e E5:q. D5:e | D5:w"
+
+arrangement:
+  - { section: intro,  bars: 4, play: [groove] }
+  - { section: verse,  bars: 8, play: [beat, groove] }
+  - { section: chorus, bars: 8, play: [beat, groove, melody] }
+  - { section: outro,  bars: 4, play: [groove] }
+
+mix:
+  drums: { gain: 0, effects: [ { use: eq, high: 4 } ] }
+  bass:  { gain: -7, effects: [ { use: sidechain, source: drums, amount: 0.3 } ] }
+  keys:  { gain: 0, pan: -0.15, reverb: 0.25, delay: 0.12 }
+  pad:   { gain: 2, pan: 0.2, reverb: 0.45 }
+
+master: { target: -14, ceiling: -1 }

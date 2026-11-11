@@ -1,0 +1,16 @@
+{
+  "texture": {
+    "type": "stripes",
+    "colors": [
+      "#4a2f18",
+      "#8a5a2e"
+    ],
+    "width": 128,
+    "angle": 0,
+    "soft": 0.05,
+    "ratio": 0.94
+  },
+  "bump": 0.8,
+  "roughness": 0.65,
+  "texture_scale": 1.2
+}

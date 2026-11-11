@@ -1,0 +1,9 @@
+# Campfire: ring of stones, crossed logs, glowing embers (use: basic-3d/campfire)
+objects:
+  - name: stones
+    repeat: { count: 9, rotate: [0, 40, 0] }
+    group:
+      - { use: basic-3d/rock, size: 0.28, seed: 4, position: [0.62, 0, 0] }
+  - { name: log-a, shape: cylinder, radius: 0.07, height: 0.9, segments: 8, rotation: [90, 25, 0], position: [0, 0.07, -0.45], material: bark }
+  - { name: log-b, shape: cylinder, radius: 0.07, height: 0.9, segments: 8, rotation: [90, -35, 0], position: [0.3, 0.1, -0.35], material: bark }
+  - { name: embers, shape: sphere, radius: 0.22, detail: 1, scale: [1, 0.35, 1], material: basic-3d/ember }

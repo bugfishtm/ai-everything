@@ -1,0 +1,13 @@
+{
+  "id": "browser",
+  "name": "Headless browser",
+  "version": "1.0.0",
+  "description": "Headless Chromium for checking games, web pages and HTML renders yourself: screenshots, console output and rendered HTML. Local files and folders are served over http automatically, so ES modules and fetch() work. WebGL works (software rendering).",
+  "areas": ["*"],
+  "commands": [
+    { "usage": "studio-browser shot <file|folder|url> [--out shot.png] [--width 1280] [--height 720] [--wait 1500] [--full] [--press \"ArrowRight,Space\"]", "description": "take a screenshot (then read the PNG to look at it)" },
+    { "usage": "studio-browser console <file|folder|url> [--wait 3000]", "description": "print console messages, page errors and failed requests" },
+    { "usage": "studio-browser html <file|folder|url>", "description": "print the rendered DOM" }
+  ],
+  "docs": "README.md"
+}

@@ -1,0 +1,18 @@
+# deliverables are rebuilt from the sources
+exports/
+
+# Studio scratch (screenshots, browser output)
+.studio/browser/
+.studio/*.png
+.studio/previews/
+.studio/mcp/
+
+# .NET / C / C++ build output
+bin/
+obj/
+*.o
+*.obj
+*.user
+.vs/
+*.log
+.DS_Store

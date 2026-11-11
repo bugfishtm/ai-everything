@@ -1,0 +1,20 @@
+# deliverables are rebuilt from the sources
+exports/
+
+# Studio scratch (screenshots, browser output)
+.studio/browser/
+.studio/*.png
+.studio/previews/
+.studio/mcp/
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+.kotlin/
+captures/
+*.iml
+.idea/
+.cxx/
+*.log
+.DS_Store

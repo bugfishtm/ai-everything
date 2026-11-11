@@ -1,0 +1,25 @@
+{
+  "id": "studio-3d",
+  "name": "Studio 3D",
+  "version": "0.2.0",
+  "description": "Text-based 3D modelling: scenes are YAML (shapes, booleans, groups, repeat/scatter, modifiers, PBR materials, pack models) built to .glb with a 4-view preview PNG and stats. Textures: image files, studio-image pictures and procedural textures with box / planar / cylinder / sphere / fit mapping, relief and more maps. Smooth or flat shading, exports for games (.glb), other tools (.obj) and 3D printing (.stl). The website has a visual 3D editor for the same scene files. Extensible with Python shape/modifier plugins.",
+  "areas": ["model3d", "game", "web", "general"],
+  "packTypes": ["3d"],
+  "commands": [
+    { "usage": "studio-3d new <file.scene.yaml> [--template basic|props|terrain|organic|textured]", "description": "create a starter scene" },
+    { "usage": "studio-3d check <scene>", "description": "validate fast (names, parameters, materials, textures)" },
+    { "usage": "studio-3d build <scene> [--preview] [--out exports/x.glb] [--format glb,obj,stl,ply]", "description": "build .glb + stats (+ 4-view PNG to look at); stl for 3D printing, obj for other tools" },
+    { "usage": "studio-3d preview <scene|model>", "description": "render perspective/front/side/top views of any model" },
+    { "usage": "studio-3d info <model>", "description": "triangles, size, materials, textures of any model — and the scene file it was built from" },
+    { "usage": "studio-3d shapes [words]", "description": "shapes, modifiers and pack models with parameters" },
+    { "usage": "studio-3d materials [words]", "description": "material presets, pack materials and material options" },
+    { "usage": "studio-3d textures [words]", "description": "procedural textures (from studio-image), UV projections, texture maps, pictures of the project" },
+    { "usage": "studio-3d plugin new <name> [--kind shape|modifier]", "description": "extend the tool with your own Python shape/modifier (plugins/3d/)" },
+    { "usage": "studio-3d docs", "description": "full scene format reference" }
+  ],
+  "formats": [
+    { "ext": ".scene.yaml", "description": "scene: materials + objects (studio-3d docs) — opens in the website's 3D editor" },
+    { "ext": "plugins/3d/*.py", "description": "shape/modifier plugins (studio3d.api)" }
+  ],
+  "docs": "README.md"
+}

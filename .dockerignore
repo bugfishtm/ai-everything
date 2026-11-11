@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+data
+backups
+.env
+.env.*
+!.env.example
+**/.env
+STUDIO_DEV
+_DEVPACKAGE.zip
+.git
+.vscode
+.idea
+**/*.log
+**/__pycache__
+tools/*/vendor

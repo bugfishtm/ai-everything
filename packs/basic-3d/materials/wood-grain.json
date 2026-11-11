@@ -1,0 +1,14 @@
+{
+  "texture": {
+    "type": "wood",
+    "colors": [
+      "#5a3a1e",
+      "#a8763e"
+    ],
+    "rings": 7,
+    "grain": 0.4
+  },
+  "bump": 0.5,
+  "roughness": 0.7,
+  "texture_scale": 1.5
+}

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration — Everything Studio</title>
+<meta name="description" content="Configuration reference of Everything Studio: environment variables, limits, websites and HTTPS, WordPress, database, image build options and the security model.">
+<meta name="theme-color" content="#090b10">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Configuration — Everything Studio">
+<meta property="og:description" content="Configuration reference of Everything Studio: environment variables, limits, websites and HTTPS, WordPress, database, image build options and the security model.">
+<meta property="og:image" content="assets/img/dashboard.webp">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.svg" alt="" width="30" height="30">
+      <span>Everything Studio<small>ai-everything</small></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <nav class="nav-links" aria-label="Main">
+      <a href="index.html">Overview</a><a href="install.html">Install</a><a href="server.html">Server &amp; HTTPS</a><a href="guide.html">Guide</a><a href="config.html" aria-current="page">Configuration</a>
+      <a class="gh" href="https://github.com/bugfishtm/ai-everything" rel="noopener">GitHub <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+<div class="page-head"><div class="wrap">
+  <h1>Configuration</h1>
+  <p>Every setting, its default and what it does — plus the database, the image build and the security model.</p>
+</div></div>
+<div class="wrap doc">
+  <aside class="toc" aria-label="On this page"><b>On this page</b><a href="#how-settings-work">How settings work</a><a href="#website-and-accounts">Website and accounts</a><a href="#the-ai">The AI</a><a href="#limits">Limits</a><a href="#servers-of-projects">Servers of projects</a><a href="#websites-and-https">Websites and HTTPS</a><a href="#wordpress">WordPress</a><a href="#database">Database</a><a href="#building-the-image">Building the image</a><a href="#what-is-not-in-the-image">What is not in the image</a><a href="#security-model">Security model</a><a href="#for-developers">For developers</a></aside>
+  <article class="prose">
+<h2 id="how-settings-work">How settings work<a class="anchor" href="#how-settings-work" aria-label="Link to this section">#</a></h2>
+
+<p>Everything is set with environment variables. With Docker Compose they come from a file named <code>.env</code> next to <code>docker-compose.yml</code>:</p>
+<div class="code"><div class="code-head"><span>Terminal</span><button class="copy" type="button">Copy</button></div><pre><code>cp .env.example .env            # on your computer
+cp .env.server.example .env     # on a public server
+docker compose up -d            # after every change</code></pre></div>
+<p>Without a <code>.env</code> file the defaults below apply — the Studio works out of the box. With plain <code>docker run</code>, pass them as <code>-e NAME=value</code>.
+Several things can also be changed on the website by an administrator (registration, certificates, AI providers); what is set there wins over the file.</p>
+
+<h2 id="website-and-accounts">Website and accounts<a class="anchor" href="#website-and-accounts" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>APP_NAME</code></td><td>Everything Studio</td><td>The name shown in the browser</td></tr><tr><td><code>STUDIO_BIND</code></td><td>127.0.0.1</td><td>Address the Studio's port is published on. <code>0.0.0.0</code> = reachable from your network.</td></tr><tr><td><code>STUDIO_PORT</code></td><td>8080</td><td>Port of the Studio on the host</td></tr><tr><td><code>PUBLIC_URL</code></td><td>—</td><td>The address people use, e.g. <code>https://studio.example.com</code>. Needed behind a proxy.</td></tr><tr><td><code>TRUST_PROXY</code></td><td>false</td><td><code>true</code> when a reverse proxy is in front (trust <code>X-Forwarded-*</code>)</td></tr><tr><td><code>COOKIE_SECURE</code></td><td>auto</td><td><code>auto</code> = HTTPS-only cookies when the request came over HTTPS; <code>true</code> / <code>false</code> force it</td></tr><tr><td><code>APP_SECRET</code></td><td>generated</td><td>Encrypts stored keys and certificates. Left empty, one is generated once and kept in the data volume. Never change it afterwards.</td></tr><tr><td><code>ADMIN_EMAIL</code> · <code>ADMIN_USERNAME</code> · <code>ADMIN_PASSWORD</code></td><td>—</td><td>Create this admin account at the first start</td></tr><tr><td><code>REGISTRATION</code></td><td>closed</td><td><code>open</code> = anyone who reaches the site may register</td></tr></tbody></table></div>
+<h2 id="the-ai">The AI<a class="anchor" href="#the-ai" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>DEFAULT_PERMISSION_MODE</code></td><td>bypass</td><td>What the AI may do in new projects: <code>bypass</code> (autonomous), <code>acceptEdits</code>, <code>ask</code>, <code>plan</code></td></tr><tr><td><code>DEFAULT_MODEL</code></td><td>—</td><td>Model for everybody (<code>fable</code>, <code>opus</code>, <code>sonnet</code>, <code>haiku</code>); empty = the account's default</td></tr><tr><td><code>CLAUDE_CODE_VERSION</code></td><td>latest</td><td><code>latest</code> keeps Claude Code current; an exact version pins it</td></tr><tr><td><code>CLAUDE_CODE_AUTO_INSTALL</code> · <code>CLAUDE_CODE_AUTO_UPDATE</code></td><td>true</td><td>Download at the first start · update at start and daily</td></tr><tr><td><code>AGENTS</code></td><td>—</td><td>Other AIs switched on at the first start: <code>codex,gemini,opencode</code></td></tr><tr><td><code>AGENTS_AUTO_UPDATE</code></td><td>true</td><td>Keep them current</td></tr><tr><td><code>AGENT_IDLE_MINUTES</code></td><td>10</td><td>How long such an AI process stays up between messages</td></tr></tbody></table></div>
+<h2 id="limits">Limits<a class="anchor" href="#limits" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>MAX_RUNS_PER_USER</code></td><td>2</td><td>AI runs at the same time, per user</td></tr><tr><td><code>MAX_TERMINALS_PER_USER</code></td><td>4</td><td>Open terminals per user</td></tr><tr><td><code>RUN_TIMEOUT_MINUTES</code></td><td>60</td><td>Longest AI run</td></tr><tr><td><code>TERMINAL_IDLE_MINUTES</code></td><td>30</td><td>A terminal nobody watches is closed after this time</td></tr><tr><td><code>UPLOAD_LIMIT_MB</code></td><td>500</td><td>Largest uploaded file</td></tr><tr><td><code>PACK_LIMIT_MB</code></td><td>4096</td><td>Largest pack</td></tr><tr><td><code>TRASH_DAYS</code></td><td>7</td><td>Deleted projects are kept this long</td></tr><tr><td><code>RELEASE_EXPORTS_MB</code></td><td>1024</td><td>Largest <code>exports/</code> folder kept with a release</td></tr><tr><td><code>STUDIO_PIDS_LIMIT</code></td><td>16384</td><td>Processes and threads of the whole container</td></tr></tbody></table></div>
+<h2 id="servers-of-projects">Servers of projects<a class="anchor" href="#servers-of-projects" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>SERVICES_ENABLED</code></td><td>true</td><td>Projects may run Node.js servers at <code>/srv/&lt;name&gt;/</code></td></tr><tr><td><code>MAX_SERVICES_PER_USER</code></td><td>3</td><td>Servers per user</td></tr><tr><td><code>SERVICE_MEMORY_MB</code></td><td>512</td><td>Memory limit of one server</td></tr></tbody></table></div>
+<h2 id="websites-and-https">Websites and HTTPS<a class="anchor" href="#websites-and-https" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>SITES_ENABLED</code></td><td>true</td><td>Publishing websites</td></tr><tr><td><code>SITES_BIND</code></td><td>127.0.0.1</td><td>Address the website ports are published on</td></tr><tr><td><code>SITES_PORT</code></td><td>8081</td><td>HTTP port of the websites as people reach it (<code>80</code> on a server)</td></tr><tr><td><code>SITES_HTTPS_PORT</code></td><td>8443</td><td>HTTPS port as people reach it (<code>443</code> on a server)</td></tr><tr><td><code>SITES_TLS</code></td><td>true</td><td>The built-in HTTPS</td></tr><tr><td><code>SITES_HTTPS</code></td><td>false</td><td><code>true</code> = a proxy in front does HTTPS; the built-in one switches itself off</td></tr><tr><td><code>SITES_BASE_DOMAIN</code></td><td>—</td><td>Every site also gets <code>&lt;name&gt;.&lt;this domain&gt;</code> (needs a wildcard DNS record)</td></tr><tr><td><code>STUDIO_DOMAIN</code></td><td>—</td><td>Serve the Studio itself over HTTPS under this host name</td></tr><tr><td><code>ACME_AGREE_TOS</code></td><td>—</td><td><code>yes</code> accepts the certificate authority's terms and switches automatic certificates on</td></tr><tr><td><code>ACME_EMAIL</code></td><td>—</td><td>Contact address for the certificate authority</td></tr><tr><td><code>ACME_DIRECTORY_URL</code></td><td>Let's Encrypt</td><td>Another ACME authority</td></tr><tr><td><code>ACME_ORDERS_PER_HOUR</code></td><td>40</td><td>New certificate orders per hour for the whole Studio</td></tr><tr><td><code>MAX_SITES_PER_USER</code></td><td>10</td><td>Websites per user</td></tr><tr><td><code>SITE_MAX_MB</code></td><td>500</td><td>Largest published website</td></tr><tr><td><code>DOMAIN</code></td><td>—</td><td>The Studio's domain for the Caddy profile</td></tr></tbody></table></div><p>How these fit together: <a href="server.html">Server &amp; HTTPS</a>.</p>
+<h2 id="wordpress">WordPress<a class="anchor" href="#wordpress" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>WORDPRESS_ENABLED</code></td><td>true</td><td>The WordPress area</td></tr><tr><td><code>MAX_WORDPRESS_PER_USER</code></td><td>5</td><td>WordPress sites per user</td></tr><tr><td><code>WORDPRESS_MEMORY_MB</code></td><td>256</td><td>PHP memory limit of a site</td></tr><tr><td><code>WORDPRESS_MAX_WORKERS</code></td><td>6</td><td>PHP processes a site may use at once</td></tr><tr><td><code>WORDPRESS_UPLOAD_MB</code></td><td>64</td><td>Largest upload (media, plugin zips)</td></tr><tr><td><code>WORDPRESS_IDLE_MINUTES</code></td><td>60</td><td>A site's PHP stops after this time without a visitor and starts with the next one. <code>0</code> = never stop.</td></tr><tr><td><code>WORDPRESS_PHP_HARDENING</code></td><td>true</td><td>PHP of a site only reaches its project folder and has no shell functions</td></tr><tr><td><code>WORDPRESS_DB_ADMIN_USER</code> · <code>WORDPRESS_DB_ADMIN_PASSWORD</code></td><td>—</td><td>Only with an external database server: an account that may create databases</td></tr></tbody></table></div>
+<h2 id="database">Database<a class="anchor" href="#database" aria-label="Link to this section">#</a></h2>
+
+<p>The image contains its own database (MariaDB). It is created at the first start, its password is generated, and it has no network port — there is nothing to configure.</p>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>MYSQL_HOST</code></td><td>—</td><td>Set it to use an <strong>external</strong> MySQL or MariaDB server instead</td></tr><tr><td><code>MYSQL_PORT</code> · <code>MYSQL_DATABASE</code> · <code>MYSQL_USER</code> · <code>MYSQL_PASSWORD</code></td><td>3306 · studio · studio · —</td><td>Its connection</td></tr></tbody></table></div><div class="code"><div class="code-head"><span>Managing the built-in database</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose exec studio studio-db status
+docker compose exec studio studio-db list            # the Studio's and the WordPress sites' databases
+docker compose exec studio studio-db shell           # an SQL prompt
+docker compose exec -T studio studio-db dump --all &gt; all.sql</code></pre></div>
+<h2 id="building-the-image">Building the image<a class="anchor" href="#building-the-image" aria-label="Link to this section">#</a></h2>
+
+<p>These apply to <code>docker compose build</code> (or <code>up --build</code>):</p>
+<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Adds</th></tr></thead><tbody><tr><td><code>INSTALL_ANDROID</code></td><td>true</td><td>JDK and Gradle (the Android SDK itself is installed at runtime)</td></tr><tr><td><code>INSTALL_DOTNET</code></td><td>true</td><td>.NET SDK for Windows software (about 800 MB)</td></tr><tr><td><code>INSTALL_WINDOWS_CROSS</code></td><td>true</td><td>mingw-w64 C/C++ cross compilers and NSIS</td></tr><tr><td><code>INSTALL_BROWSERS</code></td><td>true</td><td>Playwright and Chromium, the AI's headless browser</td></tr><tr><td><code>INSTALL_WORDPRESS</code></td><td>true</td><td>PHP and WP-CLI for the WordPress area (about 120 MB)</td></tr><tr><td><code>INSTALL_WINE</code></td><td>false</td><td>Wine, to smoke-test Windows programs (about 1 GB)</td></tr><tr><td><code>INSTALL_CLAUDE_CODE</code></td><td>false</td><td>Puts Claude Code into the image — for private images only, see below</td></tr></tbody></table></div>
+<h2 id="what-is-not-in-the-image">What is not in the image<a class="anchor" href="#what-is-not-in-the-image" aria-label="Link to this section">#</a></h2>
+
+<p>Three things are downloaded by each installation from their official sources instead of being shipped:</p>
+<ul>
+  <li><strong>Claude Code</strong> is Anthropic's proprietary software. The Studio downloads the official package at the first start; every person uses it with their own account under Anthropic's terms.</li>
+  <li><strong>The Android SDK</strong> is installed once an administrator accepted Google's license (<em>Admin → Android SDK</em>, or <code>ANDROID_SDK_ACCEPT_LICENSE=yes</code> for unattended setups).</li>
+  <li><strong>WordPress</strong> is downloaded from wordpress.org when a site is set up, so every site starts with the current release.</li>
+</ul>
+<div class="callout warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><p>Do not publish an image built with <code>INSTALL_CLAUDE_CODE=true</code>. The default build is the one that may be shared.</p></div></div><p>The software the image does contain, and its licenses: <a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/LICENSES.md" rel="noopener">docs/LICENSES.md</a>.</p>
+<h2 id="security-model">Security model<a class="anchor" href="#security-model" aria-label="Link to this section">#</a></h2>
+
+<ul>
+  <li><strong>One Linux account per user.</strong> The AI, terminals, git, the Studio tools and every file access of a user run as that account. One user's AI cannot read another user's projects or logins.</li>
+  <li><strong>No server secrets in user processes</strong> — they get a short list of environment variables, nothing else.</li>
+  <li><strong>Previews and project servers are sandboxed</strong> in the browser: they run in an opaque origin and never see the Studio's login cookie.</li>
+  <li><strong>Websites are separate</strong>: served on their own ports and origins, from releases nobody can change afterwards. A domain belongs to one website and never to the Studio itself.</li>
+  <li><strong>WordPress</strong>: a site's PHP runs as its owner, confined to the project folder, without shell functions; uploads never execute; each site's database account sees only its own database.</li>
+  <li><strong>Accounts</strong>: registration is closed by default, logins are rate-limited, and the first account from outside the private network needs a setup code from the server log.</li>
+  <li><strong>The container</strong> runs with <code>no-new-privileges</code>, a process limit and a bounded log.</li>
+</ul>
+<p>The Studio gives its users an AI that runs commands. Give accounts to people you would give a shell on that machine — and keep the image, WordPress sites and their plugins up to date.</p>
+<p>More detail: <a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/ARCHITECTURE.md" rel="noopener">docs/ARCHITECTURE.md</a>. Found a problem? <a href="https://github.com/bugfishtm/ai-everything/blob/main/SECURITY.md" rel="noopener">Security policy</a>.</p>
+<h2 id="for-developers">For developers<a class="anchor" href="#for-developers" aria-label="Link to this section">#</a></h2>
+
+<ul>
+  <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a> — how the server, the sandbox, the AI integration, websites and WordPress work</li>
+  <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/SOFTWARE.md" rel="noopener">Building Studio software</a> — the contract the creative tools follow</li>
+  <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/tools/README.md" rel="noopener">Tools</a> · <a href="https://github.com/bugfishtm/ai-everything/blob/main/packs/README.md" rel="noopener">Packs</a> · <a href="https://github.com/bugfishtm/ai-everything/blob/main/skills/README.md" rel="noopener">Skills</a></li>
+</ul>
+<div class="code"><div class="code-head"><span>Working on the source</span><button class="copy" type="button">Copy</button></div><pre><code>cd server &amp;&amp; npm install &amp;&amp; npm run build      # the API server (TypeScript)
+cd web &amp;&amp; npm install &amp;&amp; npm run dev           # the website on :5173, proxied to a Studio on :8080</code></pre></div>
+
+<div class="next"><a href="guide.html"><small>Before</small>Guide</a><span></span></div>
+  </article>
+</div>
+</main>
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="index.html">
+          <img src="assets/img/logo.svg" alt="" width="30" height="30">
+          <span>Everything Studio<small>ai-everything</small></span>
+        </a>
+        <p>A self-hosted creative studio in one container: music, images, 3D, video, games, apps and WordPress — built by an AI that works with your own account.</p>
+      </div>
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="install.html">Install</a></li>
+          <li><a href="server.html">Server &amp; HTTPS</a></li>
+          <li><a href="guide.html">Guide</a></li>
+          <li><a href="config.html">Configuration</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/bugfishtm/ai-everything" rel="noopener">Source on GitHub</a></li>
+          <li><a href="https://hub.docker.com/r/bugfishtm/ai-everything" rel="noopener">Image on Docker Hub</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/issues" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="https://bugfishtm.github.io/privacy.html">Privacy</a></li>
+          <li><a href="https://bugfishtm.github.io/impressum.html">Impressum</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/LICENSE.md" rel="noopener">License (GPL-3.0)</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/LICENSES.md" rel="noopener">Third-party software</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>🐟 Bugfish · ai-everything is independent open-source software. It is not affiliated with or endorsed by Anthropic, OpenAI, Google or the WordPress Foundation. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+      <span><a href="https://bugfishtm.github.io/privacy.html">Privacy</a> · <a href="https://bugfishtm.github.io/impressum.html">Impressum</a></span>
+    </div>
+  </div>
+</footer>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>

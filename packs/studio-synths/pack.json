@@ -1,0 +1,22 @@
+{
+  "id": "studio-synths",
+  "name": "Studio Synths",
+  "version": "1.0.0",
+  "type": "music",
+  "description": "Ready synth presets for studio-daw and an example instrument plugin (acid bass) — copy it to learn how to extend the DAW.",
+  "author": "Everything Studio",
+  "license": "CC0-1.0",
+  "tags": ["synth", "presets", "plugin"],
+  "software": ["studio-daw"],
+  "docs": "README.md",
+  "items": [
+    { "id": "acid", "kind": "plugin", "name": "Acid bass (plugin)", "file": "plugins/acid.py",
+      "description": "Squelchy 303-style bass with filter envelope and accent.", "tags": ["bass", "acid", "303"],
+      "meta": { "target": "studio-daw", "voice": "acid", "params": { "cutoff": 380, "resonance": 7, "envmod": 3.5, "decay": 0.22 } } },
+    { "id": "warm-pad", "kind": "preset", "name": "Warm pad", "file": "presets/warm-pad.json", "tags": ["pad", "warm", "ambient"] },
+    { "id": "glass-bell", "kind": "preset", "name": "Glass bell", "file": "presets/glass-bell.json", "tags": ["bell", "glass", "bright"] },
+    { "id": "lofi-keys", "kind": "preset", "name": "Lo-fi keys", "file": "presets/lofi-keys.json", "tags": ["keys", "lofi", "epiano"] },
+    { "id": "sub-bass", "kind": "preset", "name": "Sub bass", "file": "presets/sub-bass.json", "tags": ["bass", "sub", "808"] },
+    { "id": "chip-lead", "kind": "preset", "name": "Chiptune lead", "file": "presets/chip-lead.json", "tags": ["lead", "chiptune", "8bit", "square"] }
+  ]
+}

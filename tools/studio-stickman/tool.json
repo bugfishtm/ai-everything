@@ -1,0 +1,25 @@
+{
+  "id": "studio-stickman",
+  "name": "Studio Stickman",
+  "version": "0.1.0",
+  "description": "Stick figure animation from text: scenes are YAML (figures, poses and actions on a timeline, props, camera, words, sound effects) rendered to MP4/GIF/WebM with a contact sheet to look at; sprite sheets for games. Fights, dialogues, dances on the beat of a studio-daw song. Extensible with Python plugins (poses, actions, props, backdrops, sounds).",
+  "areas": ["video", "game", "image", "general"],
+  "packTypes": ["video", "game"],
+  "commands": [
+    { "usage": "studio-stickman new <file.stick.yaml> [--template fight|talk|dance|blank]", "description": "create a starter scene" },
+    { "usage": "studio-stickman check <scene>", "description": "validate fast (names, parameters, reach and timing warnings)" },
+    { "usage": "studio-stickman sheet <scene> [--at T,T,…] [--from T --to T]", "description": "contact sheet PNG of the key moments — look at it before rendering" },
+    { "usage": "studio-stickman render <scene> [--preview] [--draft] [--from T --to T] [--gif] [--webm] [--frames]", "description": "render to exports/<name>.mp4 with sound (+ contact sheet PNG to look at)" },
+    { "usage": "studio-stickman still <scene> <t…>", "description": "single frames as PNG" },
+    { "usage": "studio-stickman sprite <scene> --figure NAME [--from T --to T] [--frames 8] [--size 128]", "description": "transparent sprite sheet + atlas JSON for games" },
+    { "usage": "studio-stickman list [poses|actions|fx|props|backdrops|sounds|particles] [words]", "description": "what scenes can use (built-ins, plugins, packs) with parameters" },
+    { "usage": "studio-stickman poses [words] --preview", "description": "pose catalogue as a picture" },
+    { "usage": "studio-stickman plugin new <name> [--kind action|pose|prop|fx|backdrop|sound]", "description": "extend the tool with your own Python (plugins/stickman/)" },
+    { "usage": "studio-stickman docs", "description": "full scene format reference" }
+  ],
+  "formats": [
+    { "ext": ".stick.yaml", "description": "scene: scene/figures/props/timeline/camera/events (studio-stickman docs)" },
+    { "ext": "plugins/stickman/*.py", "description": "pose/action/fx/prop/backdrop/sound/particle plugins (studio_stickman.api)" }
+  ],
+  "docs": "README.md"
+}

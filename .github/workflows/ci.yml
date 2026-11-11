@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Server — install and type-check
+        working-directory: server
+        run: npm ci --ignore-scripts && npm run typecheck
+      - name: Website — install, type-check, build
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Studio tools — syntax
+        run: |
+          node --check tools/studio/bin/studio
+          node --check tools/studio/bin/studio-mcp
+          node --check tools/browser/bin/studio-browser
+          node --check tools/studio-3d/preview/render.js
+          python3 -m py_compile tools/studio/python/studio_packs.py tools/studio-daw/studio_daw/*.py tools/studio-3d/studio3d/*.py packs/*/plugins/*.py
+
+  image:
+    # Builds the image without the heaviest optional toolchains; installs the tools and
+    # generates + validates the system packs (studio packs validate runs in the Dockerfile).
+    runs-on: ubuntu-latest
+    needs: code
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (smoke test)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ai-everything:ci
+          build-args: |
+            INSTALL_DOTNET=false
+            INSTALL_WINDOWS_CROSS=false
+            INSTALL_ANDROID=false
+      - name: Render a song and build a scene inside the image
+        run: |
+          docker run --rm ai-everything:ci bash -c '
+            set -e; mkdir -p /tmp/p && cd /tmp/p && touch CLAUDE.md
+            studio-daw new s.song.yaml && studio-daw render s.song.yaml --json | tail -1
+            studio-3d new m.scene.yaml && studio-3d build m.scene.yaml --preview --json | tail -1
+            studio-3d new f.scene.yaml --template organic && studio-3d build f.scene.yaml --json | tail -1
+            studio packs list'
+      - name: WordPress hosting — PHP-FPM, the extensions WordPress needs, WP-CLI, the starters
+        run: |
+          docker run --rm ai-everything:ci bash -c '
+            set -e
+            php --version | head -1 && ls /usr/sbin/php-fpm* && wp --allow-root --version
+            php -m | grep -qi mysqli && php -m | grep -qi curl && php -m | grep -qi gd && php -m | grep -qi mbstring && php -m | grep -qi "Zend OPcache"
+            php -l /opt/studio/tools/studio/templates/wordpress/mu-plugin.php
+            ls /opt/studio/tools/studio/templates/wordpress
+            test -f /opt/studio/templates/wordpress/GUIDE.md'
+      - name: The image must not contain Claude Code (Anthropic's proprietary software)
+        run: |
+          docker run --rm ai-everything:ci bash -c '
+            if command -v claude || npm ls -g @anthropic-ai/claude-code 2>/dev/null | grep -q claude-code; then
+              echo "Claude Code is baked into the image — it must be downloaded at runtime instead"; exit 1
+            fi
+            echo "ok: no Claude Code in the image"'
+      - name: Start the single container (built-in database, named volumes) and check health
+        run: |
+          docker volume create ci-data && docker volume create ci-db
+          # CLAUDE_CODE_AUTO_INSTALL=false: CI does not download Claude Code
+          docker run -d --name studio -p 8080:8080 -e CLAUDE_CODE_AUTO_INSTALL=false -v ci-data:/data -v ci-db:/var/lib/mysql ai-everything:ci
+          for i in $(seq 1 90); do curl -fsS http://127.0.0.1:8080/api/health && break; sleep 2; done
+          curl -fsS http://127.0.0.1:8080/api/health
+          docker exec studio studio-db status
+          docker restart studio
+          for i in $(seq 1 90); do curl -fsS http://127.0.0.1:8080/api/health && break; sleep 2; done
+          curl -fsS http://127.0.0.1:8080/api/health
+          docker logs studio 2>&1 | tail -30

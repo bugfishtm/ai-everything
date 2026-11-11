@@ -1,0 +1,15 @@
+{
+  "texture": {
+    "type": "cells",
+    "colors": [
+      "#3c3c3a",
+      "#8d8a82",
+      "#b3afa6"
+    ],
+    "count": 50,
+    "edges": true
+  },
+  "bump": 2,
+  "roughness": 0.95,
+  "texture_scale": 1.5
+}

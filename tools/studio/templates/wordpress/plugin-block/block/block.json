@@ -1,0 +1,25 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "{{SLUG}}/card",
+	"version": "{{VERSION}}",
+	"title": "{{NAME}}",
+	"category": "design",
+	"icon": "id-alt",
+	"description": "{{DESCRIPTION}}",
+	"keywords": ["card", "box"],
+	"textdomain": "{{SLUG}}",
+	"attributes": {
+		"title": { "type": "string", "source": "html", "selector": ".{{SLUG}}-card__title" },
+		"text": { "type": "string", "source": "html", "selector": ".{{SLUG}}-card__text" },
+		"accent": { "type": "string", "default": "#2563eb" }
+	},
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"],
+		"spacing": { "margin": true, "padding": true },
+		"color": { "background": true, "text": true }
+	},
+	"editorScript": "file:./index.js",
+	"style": "file:./style.css"
+}

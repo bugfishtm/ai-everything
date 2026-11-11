@@ -1,0 +1,15 @@
+{
+  "texture": {
+    "type": "noise",
+    "colors": [
+      "#2f5d27",
+      "#6aa34a"
+    ],
+    "scale": 24,
+    "octaves": 4,
+    "contrast": 1.8
+  },
+  "bump": 0.6,
+  "roughness": 1,
+  "texture_scale": 2
+}

@@ -1,0 +1,21 @@
+{
+  "texture": {
+    "type": "bricks",
+    "colors": [
+      "#3b1d14",
+      "#9c4a32",
+      "#c0633f"
+    ],
+    "width": 64,
+    "height": 96,
+    "mortar": 6,
+    "vary": 0.6,
+    "resolution": [
+      512,
+      480
+    ]
+  },
+  "bump": 1.5,
+  "roughness": 0.85,
+  "texture_scale": 1.6
+}

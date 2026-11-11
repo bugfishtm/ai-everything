@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ai-everything/packs/pack.schema.json",
+  "title": "Studio pack manifest (pack.json)",
+  "type": "object",
+  "required": ["id", "name", "type", "items"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$", "description": "must equal the folder name" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "version": { "type": "string", "maxLength": 40 },
+    "type": { "enum": ["music", "3d", "image", "video", "general"] },
+    "description": { "type": "string", "maxLength": 8000 },
+    "author": { "type": "string" },
+    "license": { "type": "string" },
+    "homepage": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" }, "maxItems": 40 },
+    "software": { "type": "array", "items": { "type": "string" } },
+    "docs": { "type": "string", "description": "markdown file with usage notes" },
+    "items": {
+      "oneOf": [
+        { "type": "array", "items": { "$ref": "#/$defs/item" } },
+        { "type": "string", "description": "path of a JSON file containing the item array" }
+      ]
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+        "kind": { "type": "string", "maxLength": 40, "examples": ["instrument", "drumkit", "sample", "kit", "preset", "loop", "plugin", "model", "prefab", "material", "texture"] },
+        "name": { "type": "string" },
+        "file": { "type": "string", "description": "path relative to the pack folder" },
+        "description": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "meta": { "type": "object" }
+      }
+    }
+  }
+}

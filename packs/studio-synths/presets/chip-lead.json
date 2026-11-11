@@ -1,0 +1,1 @@
+{ "use": "square", "attack": 0.001, "decay": 0.05, "sustain": 0.8, "release": 0.05 }

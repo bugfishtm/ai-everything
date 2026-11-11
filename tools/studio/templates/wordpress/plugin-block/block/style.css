@@ -1,0 +1,17 @@
+/* {{NAME}} — shown in the editor and on the website */
+.{{SLUG}}-card {
+	padding: 1.25em 1.5em;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-top: 4px solid #2563eb;
+	border-radius: 8px;
+	background: #fff;
+}
+
+.{{SLUG}}-card__title {
+	margin: 0 0 0.4em;
+	font-size: 1.25em;
+}
+
+.{{SLUG}}-card__text {
+	margin: 0;
+}

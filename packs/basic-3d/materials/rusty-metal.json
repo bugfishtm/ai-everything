@@ -1,0 +1,19 @@
+{
+  "texture": {
+    "type": "clouds",
+    "colors": [
+      "#5a2d16",
+      "#9a5a2a",
+      "#6f757c"
+    ],
+    "scale": 90,
+    "cover": 0.55
+  },
+  "metallic": 0.8,
+  "roughness_map": {
+    "type": "noise",
+    "scale": 32
+  },
+  "bump": 0.4,
+  "texture_scale": 1.5
+}

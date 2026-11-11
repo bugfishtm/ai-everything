@@ -1,0 +1,24 @@
+# Everything Studio — the built-in database (MariaDB, MySQL compatible).
+# Only the Studio server inside this container uses it, through the Unix socket:
+# no TCP port is opened. Data: the /var/lib/mysql volume.
+[mysqld]
+user                    = mysql
+datadir                 = /var/lib/mysql
+socket                  = /run/mysqld/mysqld.sock
+pid-file                = /run/mysqld/mysqld.pid
+skip-networking         = 1
+skip-name-resolve       = 1
+character-set-server    = utf8mb4
+collation-server        = utf8mb4_unicode_ci
+# fixed at the first start; same behaviour on every host file system
+lower_case_table_names  = 1
+# small footprint: the Studio keeps only metadata here (files live in /data)
+innodb_buffer_pool_size = 128M
+max_connections         = 80
+performance_schema      = OFF
+# no binary log here (Debian's defaults would warn about its expiry setting)
+expire_logs_days        = 0
+
+[client]
+socket                  = /run/mysqld/mysqld.sock
+default-character-set   = utf8mb4

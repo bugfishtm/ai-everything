@@ -1,0 +1,13 @@
+{
+  "name": "{{NAME}}-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Storage server: saves (key-value) and leaderboards in SQLite",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning index.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

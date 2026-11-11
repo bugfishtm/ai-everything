@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+'use strict';
+/**
+ * studio-browser — headless Chromium helper for Claude (screenshots, console, DOM).
+ */
+const fs = require('fs');
+const path = require('path');
+const http = require('http');
+
+const HELP = `studio-browser — headless Chromium
+
+  studio-browser shot <file|folder|url> [--out shot.png] [--width 1280] [--height 720]
+                      [--wait 1500] [--full] [--press "Space,ArrowRight"]
+  studio-browser console <file|folder|url> [--wait 3000]
+  studio-browser html <file|folder|url> [--wait 1000]`;
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
+  '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.wav': 'audio/wav', '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg', '.mp4': 'video/mp4', '.webm': 'video/webm', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json',
+  '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.txt': 'text/plain',
+};
+
+function parseArgs(argv) {
+  const pos = [];
+  const opts = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--')) {
+      const eq = a.indexOf('=');
+      if (eq > 0) opts[a.slice(2, eq)] = a.slice(eq + 1);
+      else if (a === '--full') opts.full = true;
+      else {
+        opts[a.slice(2)] = argv[i + 1];
+        i++;
+      }
+    } else pos.push(a);
+  }
+  return { pos, opts };
+}
+
+function serve(root) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      let rel;
+      try {
+        rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+      } catch {
+        res.writeHead(400).end();
+        return;
+      }
+      let file = path.join(root, rel);
+      if (!file.startsWith(root)) {
+        res.writeHead(403).end();
+        return;
+      }
+      try {
+        if (fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
+        const data = fs.readFileSync(file);
+        res.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+        res.end(data);
+      } catch {
+        res.writeHead(404).end('not found');
+      }
+    });
+    server.listen(0, '127.0.0.1', () => resolve(server));
+  });
+}
+
+async function resolveTarget(target) {
+  if (/^(https?|file|data):/i.test(target)) return { url: target };
+  const abs = path.resolve(process.cwd(), target);
+  if (!fs.existsSync(abs)) throw new Error(`not found: ${target}`);
+  const isDir = fs.statSync(abs).isDirectory();
+  const root = isDir ? abs : path.dirname(abs);
+  const entry = isDir ? '' : path.basename(abs);
+  const server = await serve(root);
+  const { port } = server.address();
+  return { url: `http://127.0.0.1:${port}/${encodeURIComponent(entry)}`, server };
+}
+
+async function main() {
+  const { pos, opts } = parseArgs(process.argv.slice(2));
+  const [cmd, target] = pos;
+  if (!cmd || !target || cmd === 'help') {
+    console.log(HELP);
+    process.exit(cmd ? 0 : 1);
+  }
+  let chromium;
+  try {
+    ({ chromium } = require('playwright'));
+  } catch {
+    throw new Error('playwright is not installed in this image (build with INSTALL_BROWSERS=true)');
+  }
+  const { url, server } = await resolveTarget(target);
+  // the image's Chromium wrapper (software WebGL); falls back to Playwright's own lookup
+  const exe = [process.env.CHROMIUM_PATH, '/usr/local/bin/chromium'].find((p) => p && fs.existsSync(p));
+  const browser = await chromium.launch({ headless: true, executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const logs = [];
+  try {
+    const width = Number(opts.width) || 1280;
+    const height = Number(opts.height) || 720;
+    const page = await browser.newPage({ viewport: { width, height } });
+    // browsers ask for /favicon.ico on their own — not a problem of the page
+    const noise = (url) => /\/favicon\.ico(\?|$)/.test(url);
+    page.on('console', (m) => {
+      const loc = m.location && m.location();
+      if (m.type() === 'error' && /Failed to load resource/.test(m.text()) && loc && noise(loc.url || '')) return;
+      logs.push(`[${m.type()}] ${m.text()}${loc && loc.url && m.type() === 'error' ? ` (${loc.url})` : ''}`);
+    });
+    page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
+    page.on('requestfailed', (r) => {
+      if (!noise(r.url())) logs.push(`[requestfailed] ${r.url()} — ${r.failure() ? r.failure().errorText : ''}`);
+    });
+    page.on('response', (r) => {
+      if (r.status() >= 400 && !noise(r.url())) logs.push(`[http ${r.status()}] ${r.url()}`);
+    });
+    await page.goto(url, { waitUntil: 'load', timeout: Number(opts.timeout) || 30000 });
+    await page.waitForTimeout(Number(opts.wait) || (cmd === 'console' ? 3000 : 1500));
+    if (opts.press) {
+      for (const key of String(opts.press).split(',').map((k) => k.trim()).filter(Boolean)) {
+        await page.keyboard.press(key);
+        await page.waitForTimeout(120);
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (cmd === 'shot' || cmd === 'screenshot') {
+      const out = path.resolve(process.cwd(), opts.out || '.studio/shot.png');
+      fs.mkdirSync(path.dirname(out), { recursive: true });
+      await page.screenshot({ path: out, fullPage: !!opts.full });
+      console.log(`Saved screenshot: ${path.relative(process.cwd(), out) || out} (${width}x${height}${opts.full ? ', full page' : ''})`);
+      const problems = logs.filter((l) => /^\[(error|pageerror|requestfailed|http)/.test(l));
+      if (problems.length) console.log(`\n${problems.length} problem(s) on the page:\n${problems.slice(0, 30).join('\n')}`);
+    } else if (cmd === 'console') {
+      console.log(logs.length ? logs.join('\n') : '(no console output)');
+    } else if (cmd === 'html') {
+      const html = await page.content();
+      console.log(html.length > 60000 ? html.slice(0, 60000) + '\n… (truncated)' : html);
+    } else {
+      throw new Error(`unknown command: ${cmd}`);
+    }
+  } finally {
+    await browser.close();
+    if (server) server.close();
+  }
+}
+
+main().catch((err) => {
+  console.error(`studio-browser: ${err.message}`);
+  process.exit(1);
+});

@@ -1,0 +1,74 @@
+#!/bin/bash
+# studio-db — manage the built-in database of Everything Studio.
+#
+#   studio-db status                 is it running? size, tables
+#   studio-db shell                  SQL prompt (mariadb client)
+#   studio-db dump  > backup.sql     consistent SQL dump of the Studio database
+#   studio-db dump --all > all.sql   the Studio database AND the databases of the WordPress sites
+#   studio-db import < backup.sql    load a dump (schema is created first)
+#   studio-db list                   the databases (Studio + WordPress sites) with their sizes
+#
+# From the host:  docker compose exec studio studio-db dump > studio.sql
+# Import into a stopped installation:
+#   docker compose run --rm -T studio studio-db import < studio.sql
+set -uo pipefail
+. /usr/local/lib/studio/db.sh
+
+started_here=0
+need_db() {
+  if db_external; then
+    echo "studio-db works with the built-in database only (MYSQL_HOST is set)." >&2
+    exit 1
+  fi
+  if ! db_running; then
+    db_start >&2 || exit 1
+    started_here=1
+  fi
+}
+finish() { [ "$started_here" = 1 ] && db_stop; }
+trap finish EXIT
+
+cmd="${1:-status}"
+case "$cmd" in
+  status)
+    if db_running; then
+      echo "running (socket $DB_SOCKET)"
+      mariadb --socket="$DB_SOCKET" -uroot -N -e "SELECT CONCAT(COUNT(*), ' tables, ', ROUND(SUM(data_length + index_length) / 1048576, 1), ' MB') FROM information_schema.tables WHERE table_schema = '$DB_NAME'"
+    else
+      echo "not running"
+    fi
+    ;;
+  shell)
+    need_db
+    mariadb --socket="$DB_SOCKET" -uroot "$DB_NAME"
+    ;;
+  dump)
+    need_db
+    if [ "${2:-}" = "--all" ]; then
+      # the Studio's database first, then one per WordPress site (<name>_wp_<id>); their accounts
+      # are created again by the Studio at its next start
+      mapfile -t wp < <(mariadb --socket="$DB_SOCKET" -uroot -N -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name REGEXP '^${DB_NAME}_wp_[0-9]+\$' ORDER BY schema_name")
+      mariadb-dump --socket="$DB_SOCKET" -uroot --single-transaction --quick --routines --default-character-set=utf8mb4 --databases "$DB_NAME" "${wp[@]}"
+    else
+      mariadb-dump --socket="$DB_SOCKET" -uroot --single-transaction --quick --routines --default-character-set=utf8mb4 "$DB_NAME"
+    fi
+    ;;
+  list)
+    need_db
+    mariadb --socket="$DB_SOCKET" -uroot -t -e "SELECT table_schema AS db, COUNT(*) AS tables, ROUND(SUM(data_length + index_length) / 1048576, 1) AS mb FROM information_schema.tables WHERE table_schema = '$DB_NAME' OR table_schema REGEXP '^${DB_NAME}_wp_[0-9]+\$' GROUP BY table_schema ORDER BY table_schema"
+    ;;
+  import)
+    need_db
+    # the Studio creates/upgrades its tables first, so plain data dumps load too
+    (cd /opt/studio/server && MYSQL_SOCKET="$DB_SOCKET" MYSQL_PASSWORD_FILE="$DB_PW_FILE" MYSQL_USER="$DB_USER" \
+      MYSQL_DATABASE="$DB_NAME" MYSQL_HOST= MYSQL_PASSWORD= node dist/index.js --migrate-only) >&2 || exit 1
+    file="${2:--}"
+    { echo 'SET FOREIGN_KEY_CHECKS=0; SET UNIQUE_CHECKS=0;'; cat "$file"; echo 'SET FOREIGN_KEY_CHECKS=1; SET UNIQUE_CHECKS=1;'; } |
+      mariadb --socket="$DB_SOCKET" -uroot "$DB_NAME" || { echo "import failed" >&2; exit 1; }
+    echo "imported into $DB_NAME" >&2
+    ;;
+  *)
+    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    exit 2
+    ;;
+esac

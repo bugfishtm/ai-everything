@@ -1,0 +1,721 @@
+#!/usr/bin/env node
+'use strict';
+/**
+ * studio — command line access to Everything Studio from inside AI sessions:
+ * asset library, packs, skills, servers, websites, releases and the WordPress of the project.
+ * Run `studio help` for usage.
+ */
+const fs = require('fs');
+const path = require('path');
+const { request, formatSearch, formatInfo, formatTools, fmtSize } = require('../lib/client.js');
+const packs = require('../lib/packs.js');
+
+const BOOL_FLAGS = new Set(['json', 'help', 'force', 'spa', 'no-spa', 'all', 'no-exports', 'activate']);
+
+function parseArgs(argv) {
+  const pos = [];
+  const opts = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--') {
+      pos.push(...argv.slice(i + 1));
+      break;
+    }
+    if (a.startsWith('--')) {
+      const eq = a.indexOf('=');
+      if (eq > 0) opts[a.slice(2, eq)] = a.slice(eq + 1);
+      else {
+        const k = a.slice(2);
+        const next = argv[i + 1];
+        if (!BOOL_FLAGS.has(k) && next !== undefined && !next.startsWith('--')) {
+          opts[k] = next;
+          i++;
+        } else opts[k] = true;
+      }
+    } else if (a === '-h') opts.help = true;
+    else pos.push(a);
+  }
+  return { pos, opts };
+}
+
+const HELP = `studio — Everything Studio: library, packs, skills, servers, websites, releases, WordPress
+
+  studio lib search <words…> [--kind K] [--scope all|mine|global] [--limit N]
+  studio lib info <asset-id>
+  studio lib get <asset-id> [--to <folder>]
+  studio lib add <paths…> --name "Name" [--kind K] [--tags a,b] [--desc "…"] [--main <file>]
+  studio packs list [--type music|3d|image|video|general]
+  studio packs show <pack-id>
+  studio packs search <words…> [--type T] [--kind instrument|sample|kit|preset|plugin|model|prefab|material …]
+  studio packs path <pack-id>[/<item-id>]      absolute path (for scripts, fluidsynth, …)
+  studio packs new <id> [--type music] [--name "…"]   scaffold packs/<id>/ in the project
+  studio packs validate <folder…>
+  studio packs install <folder>                  → personal pack (publish it on the website)
+  studio service new [--template multiplayer|storage|basic] [--dir server]   Node.js server for the app
+  studio service deploy [<dir>] [--name "…"]     copy → npm install → (re)start; prints URL + log
+  studio service status | logs [--tail N] | restart | stop | start   [<dir>|<id>]
+  studio service env [<dir>|<id>] [KEY=value …] [--unset KEY]    then: studio service restart
+  studio service list
+  studio site publish [--root dist] [--build "npm run build"] [--spa|--no-spa]   publish as a website
+  studio site status                             addresses, last publish, settings
+  studio site domain add|remove <domain…> | check
+  studio site set [--root …] [--build "…"] [--spa|--no-spa] [--name <name>]  ·  studio site offline | online
+  studio site cert [<domain>]                    HTTPS certificate of each domain (issuer, expiry, errors)
+  studio site cert issue [<domain>]              request / renew the certificate now
+  studio skill list [--all]                      the user's skills for this area (know-how to load on demand)
+  studio skill show <name>                       read a skill before doing a matching task
+  studio skill new <name>                        scaffold skills/<name>/SKILL.md in the project
+  studio skill save <SKILL.md | folder>          save it as the user's own skill (new or updated)
+  studio release status                          version of the project, its releases, what changed since
+  studio release patch|minor|major|<x.y.z> [--notes "…"] [--title "…"] [--no-exports]
+                                                 new version: VERSION, CHANGELOG.md, git tag, copy of exports/
+  studio wp status                               WordPress of the project: state, addresses, own modules
+  studio wp new plugin|theme <slug> [--name "…"] [--desc "…"] [--template T]   own module from a starter
+  studio wp link                                 link module folders created by hand into WordPress
+  studio wp export <slug>                        installable zip of an own plugin/theme → exports/
+  studio wp log [--tail N]                       PHP error log of the site
+  studio wp login-url [--to /wp-admin/…]         one-time address that opens the admin area signed in
+  studio wp restart                              restart the site's PHP
+  studio whoami
+  studio tools
+
+  kinds: model3d image audio music video font code document other
+  Add --json for machine readable output.`;
+
+function packsCommand(sub, rest, opts, out) {
+  switch (sub) {
+    case 'list':
+    case 'ls': {
+      const list = packs.allPacks().filter((p) => !opts.type || p.manifest.type === opts.type);
+      const data = list.map((p) => ({ id: p.id, name: p.manifest.name, type: p.manifest.type, scope: p.scope, items: p.items.length, kinds: packs.kinds(p.items), description: p.manifest.description || '' }));
+      out(data, list.length
+        ? list.map((p) => `${p.id.padEnd(22)} ${String(p.manifest.type).padEnd(6)} ${p.scope.padEnd(8)} ${Object.entries(packs.kinds(p.items)).map(([k, n]) => `${n} ${k}`).join(', ')}\n${' '.repeat(23)}${(p.manifest.description || '').split('\n')[0].slice(0, 110)}`).join('\n')
+        : 'No packs found (STUDIO_PACKS_PATH).');
+      return;
+    }
+    case 'show':
+    case 'info': {
+      const { pack } = packs.resolveRef(rest[0]);
+      const m = pack.manifest;
+      const lines = [`${pack.id} — ${m.name} [${m.type}, ${pack.scope}] ${m.version || ''}`, m.description || '', `folder: ${pack.dir}`];
+      if (m.license) lines.push(`license: ${m.license}${m.author ? `, author: ${m.author}` : ''}`);
+      if (m.docs) lines.push(`docs: ${path.join(pack.dir, m.docs)}`);
+      if (pack.meta.scope === 'global' && pack.meta.hasCode && !pack.meta.trusted) lines.push('note: plugin code of this pack is not reviewed yet — it will not run');
+      lines.push(`items (${pack.items.length}) — reference as ${pack.id}/<id>:`);
+      for (const it of pack.items) {
+        const media = pack.index[it.id];
+        const extra = [
+          it.meta && it.meta.program !== undefined ? `program ${it.meta.program}` : '',
+          it.meta && it.meta.root ? `root ${it.meta.root}` : '',
+          it.meta && it.meta.bpm ? `${it.meta.bpm} bpm` : '',
+          media && media.duration ? `${media.duration}s` : '',
+          media && media.width ? `${media.width}x${media.height}` : '',
+          it.tags && it.tags.length ? `#${it.tags.join(' #')}` : '',
+        ].filter(Boolean).join('  ');
+        lines.push(`  ${it.id.padEnd(28)} ${String(it.kind).padEnd(10)} ${it.name || ''}${extra ? '  ' + extra : ''}`);
+      }
+      out({ ...m, scope: pack.scope, dir: pack.dir, items: pack.items.map((it) => ({ ...it, media: pack.index[it.id] })) }, lines.join('\n'));
+      return;
+    }
+    case 'search':
+    case 'find': {
+      const res = packs.searchItems(rest.join(' '), { type: opts.type, kind: opts.kind, limit: Number(opts.limit) || 40 });
+      out(res.map(({ pack, item }) => ({ ref: `${pack.id}/${item.id}`, kind: item.kind, name: item.name, tags: item.tags || [], pack: pack.manifest.name, type: pack.manifest.type })),
+        res.length ? res.map(({ pack, item }) => `${`${pack.id}/${item.id}`.padEnd(44)} ${String(item.kind).padEnd(10)} ${item.name || ''}`).join('\n') : 'No matching pack items.');
+      return;
+    }
+    case 'path': {
+      const r = packs.resolveRef(rest[0]);
+      out({ path: r.file }, r.file || '(this item has no file)');
+      return;
+    }
+    case 'new': {
+      if (!rest[0]) throw new Error('usage: studio packs new <id> [--type music|3d|image|video|general] [--name "…"]');
+      const base = process.env.STUDIO_PROJECT_DIR ? path.join(process.env.STUDIO_PROJECT_DIR, 'packs') : path.resolve('packs');
+      const dir = packs.scaffold(base, rest[0], String(opts.type || 'general'), opts.name && String(opts.name));
+      out({ dir }, `Created ${dir}/pack.json — add files and items, then: studio packs validate ${path.relative(process.cwd(), dir) || dir}`);
+      return;
+    }
+    case 'validate': {
+      if (!rest.length) throw new Error('usage: studio packs validate <folder…>');
+      let bad = 0;
+      const lines = [];
+      const data = [];
+      for (const d of rest) {
+        const r = packs.validate(d);
+        data.push({ dir: d, ...r, manifest: undefined });
+        if (!r.ok) bad++;
+        lines.push(`${r.ok ? 'OK  ' : 'FAIL'} ${d}`);
+        for (const e of r.errors) lines.push(`  error: ${e}`);
+        for (const w of r.warnings) lines.push(`  warning: ${w}`);
+      }
+      out(data, lines.join('\n'));
+      if (bad) process.exitCode = 1;
+      return;
+    }
+    case 'install':
+      return 'install';
+    default:
+      throw new Error(`unknown "studio packs ${sub || ''}" — run: studio help`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// studio service — Node.js servers of this project (deployed + run by the Studio)
+// ---------------------------------------------------------------------------
+const SERVICE_TEMPLATES = ['multiplayer', 'storage', 'basic'];
+
+function slug(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'app';
+}
+
+function serviceLines(s, log) {
+  const ws = s.url.replace(/^http/, 'ws');
+  const lines = [
+    `${s.name} — ${s.deploying ? 'deploying' : s.state}${s.release ? ` (release #${s.release})` : ''}${s.message ? ` — ${s.message}` : ''}`,
+    `  public URL:   ${s.url}/        (apps, browsers)`,
+    `  WebSocket:    ${ws}/<path>`,
+    `  from here:    ${s.internalUrl}/   (curl / node tests inside the Studio)`,
+    `  folder:       ${s.root}/   ·  id ${s.id}${s.port ? `  ·  port ${s.port}` : ''}${s.memoryMb ? `  ·  ${s.memoryMb} MB` : ''}`,
+  ];
+  if (log && log.length) lines.push('log:', ...log.map((l) => `  ${l}`));
+  return lines.join('\n');
+}
+
+async function findService(target) {
+  const r = await request('GET', '/services');
+  const list = r.services;
+  if (!list.length) throw new Error('this project has no deployed server yet — run: studio service deploy');
+  if (target === undefined) {
+    if (list.length === 1) return list[0];
+    const def = list.find((s) => s.root === 'server');
+    if (def) return def;
+    throw new Error(`several servers — name one: ${list.map((s) => `${s.root} (#${s.id})`).join(', ')}`);
+  }
+  const byId = /^\d+$/.test(String(target)) ? list.find((s) => s.id === Number(target)) : null;
+  const root = path.relative(process.env.STUDIO_PROJECT_DIR || process.cwd(), path.resolve(process.cwd(), String(target))) || String(target);
+  const found = byId || list.find((s) => s.root === root || s.root === String(target) || s.slug === String(target));
+  if (!found) throw new Error(`no deployed server "${target}" — servers: ${list.map((s) => s.root).join(', ')}`);
+  return found;
+}
+
+async function serviceCommand(sub, rest, opts, out) {
+  switch (sub) {
+    case 'new':
+    case 'create': {
+      const template = String(opts.template || rest[0] || 'basic');
+      if (!SERVICE_TEMPLATES.includes(template)) throw new Error(`--template must be one of: ${SERVICE_TEMPLATES.join(', ')}`);
+      const dir = path.resolve(process.cwd(), String(opts.dir || 'server'));
+      if (fs.existsSync(path.join(dir, 'package.json')) && !opts.force) throw new Error(`${dir}/package.json exists — use another --dir or --force`);
+      const src = path.join(__dirname, '..', 'templates', 'service', template);
+      let name = 'app';
+      try {
+        name = slug((await request('GET', '/whoami')).project.name);
+      } catch {
+        /* outside a Studio session */
+      }
+      fs.mkdirSync(dir, { recursive: true });
+      for (const f of fs.readdirSync(src)) {
+        const text = fs.readFileSync(path.join(src, f), 'utf8').replace(/\{\{NAME\}\}/g, name);
+        fs.writeFileSync(path.join(dir, f), text);
+      }
+      const rel = path.relative(process.cwd(), dir) || '.';
+      out({ dir, template }, `Created ${rel}/ from the "${template}" template (${fs.readdirSync(src).join(', ')}).\nRead ${rel}/README.md, adapt index.js, then: studio service deploy${rel === 'server' ? '' : ` ${rel}`}`);
+      return;
+    }
+    case 'deploy': {
+      const body = {};
+      if (rest[0]) body.path = path.resolve(process.cwd(), rest[0]);
+      if (opts.name && opts.name !== true) body.name = String(opts.name);
+      const r = await request('POST', '/services/deploy', body);
+      out(r, serviceLines(r.service, r.log));
+      if (r.service.state !== 'running' || !r.service.listening) process.exitCode = 1;
+      return;
+    }
+    case 'status':
+    case 'info':
+    case 'url': {
+      const s = await findService(rest[0]);
+      out(s, serviceLines(s));
+      return;
+    }
+    case 'logs':
+    case 'log': {
+      const s = await findService(rest[0]);
+      const r = await request('GET', `/services/${s.id}/logs?tail=${Number(opts.tail) || 100}`);
+      out(r, r.log.join('\n') || '(no log lines yet)');
+      return;
+    }
+    case 'start':
+    case 'stop':
+    case 'restart': {
+      const s = await findService(rest[0]);
+      const r = await request('POST', `/services/${s.id}/${sub}`, {});
+      out(r, serviceLines(r.service, sub === 'stop' ? [] : r.log.slice(-15)));
+      return;
+    }
+    case 'env': {
+      const assignments = rest.filter((a) => a.includes('='));
+      const target = rest.find((a) => !a.includes('='));
+      const s = await findService(target);
+      const set = Object.fromEntries(assignments.map((a) => [a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)]));
+      const unset = opts.unset ? String(opts.unset).split(',') : [];
+      const r = await request('PUT', `/services/${s.id}/env`, { set, unset });
+      out(r, `Environment of ${s.name}: ${r.env.join(', ') || '(empty)'}\nRestart to apply: studio service restart`);
+      return;
+    }
+    case 'list':
+    case 'ls':
+    case undefined: {
+      const r = await request('GET', '/services');
+      const lines = r.services.map((s) => serviceLines(s));
+      for (const d of r.detected.filter((x) => !x.serviceId)) lines.push(`${d.root}/ — a Node.js server, not deployed yet (studio service deploy ${d.root})`);
+      out(r, lines.join('\n\n') || 'No server in this project yet. Start one: studio service new --template multiplayer|storage|basic');
+      return;
+    }
+    default:
+      throw new Error(`unknown "studio service ${sub}" — run: studio help`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// studio site — publish the project as a website (served by the Studio's website port)
+// ---------------------------------------------------------------------------
+function fmtBytes(n) {
+  return n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+}
+
+function siteLines(s, log) {
+  const status = { live: 'live', offline: 'OFFLINE (switched off)', unpublished: 'not published yet', publishing: 'publishing …' }[s.status] || s.status;
+  const st = s.stats;
+  const lines = [
+    `Website "${s.slug}" — ${status}${s.release ? ` · release #${s.release}` : ''}${st ? ` · ${st.files} files, ${fmtBytes(st.bytes)} from ${st.root === '.' ? 'the project folder' : `${st.root}/`}` : ''}`,
+  ];
+  if (s.message) lines.push(`  ${s.message}`);
+  const addrs = [...s.addresses.custom, ...(s.addresses.base ? [s.addresses.base] : []), s.addresses.local];
+  lines.push(`  addresses:  ${addrs.join('  ·  ')}`);
+  if (!s.domains.length) lines.push('              (no own domain yet — the user adds one in the Website tab, or: studio site domain add example.com)');
+  const pendingTls = Object.values(s.tls || {}).filter((t) => t.status !== 'active' && t.mode !== 'off');
+  if (pendingTls.length) lines.push(`  https:      not active yet for ${pendingTls.map((t) => t.host).join(', ')} — details: studio site cert`);
+  lines.push(`  test here:  curl -s -H "Host: ${s.internal.host}" ${s.internal.url}`);
+  lines.push(`              studio-browser shot ${s.internal.browser} --out .studio/site.png`);
+  const set = s.settings;
+  lines.push(
+    `  settings:   folder ${set.root ? (set.root === '.' ? 'project folder' : `${set.root}/`) : 'automatic'}` +
+      `${set.build ? ` · build: ${set.build}` : ''} · single-page app: ${set.spa ? 'yes' : 'no'}` +
+      `${set.mode === 'server' ? ` · content: server #${set.serviceId}` : ''}`,
+  );
+  if (log && log.length) lines.push('log:', ...log.map((l) => `  ${l}`));
+  return lines.join('\n');
+}
+
+function siteSettingsFromOpts(opts) {
+  const s = {};
+  if (opts.root !== undefined && opts.root !== true) s.root = String(opts.root);
+  if (opts.build !== undefined) s.build = opts.build === true ? '' : String(opts.build);
+  if (opts.spa) s.spa = true;
+  if (opts['no-spa']) s.spa = false;
+  return s;
+}
+
+async function siteCommand(sub, rest, opts, out) {
+  switch (sub) {
+    case 'publish':
+    case 'deploy': {
+      const r = await request('POST', '/site/publish', siteSettingsFromOpts(opts));
+      out(r, siteLines(r.site, r.log));
+      return;
+    }
+    case 'status':
+    case 'info':
+    case 'url':
+    case undefined: {
+      const r = await request('GET', '/site');
+      if (!r.site) {
+        out(r, `This project has no website yet. Publish it: studio site publish   (would publish ${r.suggestedRoot === '.' ? 'the project folder' : `${r.suggestedRoot}/`})` +
+          (r.hosting.enabled ? '' : '\nWebsite hosting is switched off on this Studio (SITES_ENABLED=false).'));
+        return;
+      }
+      out(r, siteLines(r.site, sub === undefined || sub === 'status' ? r.log.slice(-8) : []));
+      return;
+    }
+    case 'domain':
+    case 'domains': {
+      const [action, ...names] = rest;
+      if (action === 'check') {
+        const r = await request('POST', '/site/check', {});
+        out(r, r.results.length ? r.results.map((x) => `${x.ok ? 'OK  ' : 'FAIL'} ${x.domain}${x.addresses.length ? ` → ${x.addresses.join(', ')}` : ''}\n     ${x.message}`).join('\n') : 'No domains yet.');
+        return;
+      }
+      if ((action !== 'add' && action !== 'remove') || !names.length) throw new Error('usage: studio site domain add|remove <domain…>   or   studio site domain check');
+      const r = await request('POST', '/site/domains', action === 'add' ? { add: names } : { remove: names });
+      out(r, [...r.errors.map((e) => `error: ${e}`), siteLines(r.site)].join('\n') +
+        (action === 'add' ? '\nDNS: an A record (and AAAA for IPv6) of each domain → this server\'s public IP; then: studio site domain check' : ''));
+      if (r.errors.length) process.exitCode = 1;
+      return;
+    }
+    case 'set': {
+      const body = { settings: siteSettingsFromOpts(opts) };
+      if (opts.name && opts.name !== true) body.slug = String(opts.name);
+      const r = await request('PATCH', '/site', body);
+      out(r, siteLines(r.site) + '\nSettings apply to the next publish: studio site publish');
+      return;
+    }
+    case 'offline':
+    case 'online': {
+      const r = await request('PATCH', '/site', { enabled: sub === 'online' });
+      out(r, siteLines(r.site));
+      return;
+    }
+    case 'cert':
+    case 'certs':
+    case 'https':
+    case 'tls': {
+      const issue = rest[0] === 'issue' || rest[0] === 'renew';
+      const domain = (issue ? rest[1] : rest[0] === 'status' ? rest[1] : rest[0]) || undefined;
+      const r = await request('POST', '/site/tls', { action: issue ? 'issue' : 'status', ...(domain ? { domain } : {}) });
+      out(r, certLines(r) + (issue && !r.errors.length ? '\nRequested — it takes up to a minute; check again: studio site cert' : ''));
+      if (r.errors.length) process.exitCode = 1;
+      return;
+    }
+    default:
+      throw new Error(`unknown "studio site ${sub}" — run: studio help`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// studio site cert — HTTPS certificates of the website's domains
+// ---------------------------------------------------------------------------
+async function releaseCommand(sub, rest, opts, out) {
+  const show = (r) => {
+    const v = r.versioning;
+    const lines = [v.enabled ? `Version ${v.version}` : `Not versioned yet (would start at ${v.version}) — the first release switches versioning on.`];
+    if (r.releases.length) {
+      lines.push('Releases (newest first):');
+      for (const x of r.releases.slice(0, 15)) {
+        lines.push(`  v${x.version}  ${String(x.createdAt).slice(0, 10)}${x.title ? `  ${x.title}` : ''}${x.exports ? `  [exports: ${x.exports.files} file(s), ${fmtBytes(x.exports.bytes)}]` : ''}`);
+      }
+    } else lines.push('No releases yet.');
+    lines.push(`Since the last release: ${r.pending.commits} change(s).`);
+    for (const m of r.pending.messages.slice(0, 12)) lines.push(`  - ${m}`);
+    lines.push(`Next: patch → ${r.next.patch}, minor → ${r.next.minor}, major → ${r.next.major}`);
+    return lines.join('\n');
+  };
+  if (!sub || sub === 'status' || sub === 'list' || sub === 'ls') {
+    const r = await request('GET', '/releases');
+    out(r, show(r));
+    return;
+  }
+  const body = {};
+  if (['patch', 'minor', 'major'].includes(sub)) body.bump = sub;
+  else if (/^v?\d+(\.\d+){0,2}(-[0-9A-Za-z.]+)?$/.test(sub)) body.version = sub;
+  else throw new Error('usage: studio release status | patch | minor | major | <x.y.z>  [--notes "…"] [--title "…"] [--no-exports]');
+  if (opts.notes && opts.notes !== true) body.notes = String(opts.notes).replace(/\\n/g, '\n');
+  if (opts.title && opts.title !== true) body.title = String(opts.title);
+  if (opts['no-exports']) body.exports = false;
+  const r = await request('POST', '/releases', body);
+  const x = r.release;
+  out(
+    r,
+    `Released v${x.version}${x.title ? ` — ${x.title}` : ''} (git tag ${x.tag}).` +
+      (x.exports ? `\nA copy of exports/ is kept with it: ${x.exports.files} file(s), ${fmtBytes(x.exports.bytes)}.` : '\nNo copy of exports/ was kept (the folder is empty or --no-exports).') +
+      (r.exportsNote ? `\nNote: ${r.exportsNote}` : '') +
+      '\nThe user finds it in the History tab (Releases): notes, downloads, restore.',
+  );
+}
+
+function wpLines(r) {
+  if (!r.available) return `WordPress is not available on this Studio: ${r.reason}`;
+  const w = r.wordpress;
+  const lines = [];
+  if (!w || w.state === 'new') lines.push('WordPress is NOT installed in this project yet — the user sets it up in the WordPress tab (title, admin account).');
+  else if (w.state === 'installing') lines.push('WordPress is being installed …');
+  else if (w.state === 'error') lines.push(`The installation failed: ${w.error}`);
+  else {
+    lines.push(`WordPress ${w.version || ''} — ${w.desired === 'running' ? 'online' : 'switched off'} (PHP ${w.phpVersion}${w.php === 'running' ? ', running' : ', starts with the next request'})`);
+    if (r.site) {
+      lines.push(`Address: ${r.site.addresses.primary}`);
+      lines.push(`Inside the Studio: ${r.site.internal.browser}   (curl -H "Host: ${r.site.internal.host}" ${r.site.internal.url})`);
+    }
+    lines.push(`Admin user: ${w.adminUser || '?'} — signed-in address for checks: studio wp login-url`);
+    if (w.debug) lines.push('WP_DEBUG is on.');
+    if (r.log) lines.push(`PHP error log: ${r.log}   (studio wp log)`);
+  }
+  if (r.modules.length) {
+    lines.push('Own modules:');
+    for (const m of r.modules) lines.push(`  ${m.kind}  ${m.slug}${m.version ? `  v${m.version}` : ''}  — ${m.name}  (${m.file})${m.linked || !w || w.state !== 'ready' ? '' : '  NOT LINKED: studio wp link'}`);
+  } else lines.push('No own modules yet — studio wp new plugin <slug> --name "…"   (or: new theme)');
+  return lines.join('\n');
+}
+
+async function wpCommand(sub, rest, opts, out) {
+  switch (sub) {
+    case undefined:
+    case 'status':
+    case 'info':
+    case 'url': {
+      const r = await request('GET', '/wordpress');
+      out(r, wpLines(r));
+      return;
+    }
+    case 'new':
+    case 'create': {
+      const [kind, slug] = rest;
+      if (!['plugin', 'theme'].includes(kind) || !slug) throw new Error('usage: studio wp new plugin|theme <slug> [--name "…"] [--desc "…"] [--template T]');
+      const body = { kind, slug };
+      if (opts.name && opts.name !== true) body.name = String(opts.name);
+      if (opts.desc || opts.description) body.description = String(opts.desc || opts.description);
+      if (opts.template && opts.template !== true) body.template = String(opts.template);
+      if (opts.author && opts.author !== true) body.author = String(opts.author);
+      const r = await request('POST', '/wordpress/modules', body);
+      const m = r.module;
+      out(
+        r,
+        `Created the ${m.kind} "${m.name}" in ${m.kind}s/${m.slug}/ (main file ${m.file}).` +
+          (r.installed
+            ? `\nIt is linked into WordPress — activate it: (cd wordpress && wp ${m.kind} activate ${m.slug})`
+            : '\nWordPress is not installed yet (the user does that in the WordPress tab) — the module is linked in then.'),
+      );
+      return;
+    }
+    case 'link': {
+      const r = await request('POST', '/wordpress/link', {});
+      out(r, `Linked: ${r.modules.filter((m) => m.linked).map((m) => `${m.kind}s/${m.slug}`).join(', ') || 'nothing'}` + (r.conflicts.length ? `\nNot linked (WordPress already has a folder with that name): ${r.conflicts.join(', ')}` : ''));
+      return;
+    }
+    case 'export':
+    case 'zip': {
+      if (!rest[0]) throw new Error('usage: studio wp export <slug>');
+      const body = { slug: rest[0] };
+      if (opts.kind && opts.kind !== true) body.kind = String(opts.kind);
+      const r = await request('POST', '/wordpress/export', body);
+      out(r, `Exported the ${r.kind} to ${r.path} (${fmtBytes(r.size)}${r.version ? `, version ${r.version}` : ''}) — installable under Plugins/Themes → Add New → Upload.`);
+      return;
+    }
+    case 'log':
+    case 'logs': {
+      const r = await request('GET', `/wordpress/log?tail=${Number(opts.tail) || 60}`);
+      out(r, [...r.fpm, ...r.lines].join('\n') || 'The PHP error log is empty.');
+      return;
+    }
+    case 'login-url':
+    case 'login': {
+      const body = {};
+      if (opts.to && opts.to !== true) body.to = String(opts.to);
+      const r = await request('POST', '/wordpress/login', body);
+      // only the address: made for $(studio wp login-url)
+      out(r, r.url);
+      return;
+    }
+    case 'restart': {
+      await request('POST', '/wordpress/restart', {});
+      out({ ok: true }, 'PHP of the site restarted.');
+      return;
+    }
+    default:
+      throw new Error(`unknown "studio wp ${sub}" — run: studio help`);
+  }
+}
+
+function certLines(r) {
+  const h = r.hosting || {};
+  if (h.https) return 'A reverse proxy in front of this Studio handles HTTPS — certificates are managed there.';
+  if (!h.tls || !h.tls.enabled) return 'The built-in HTTPS is switched off on this Studio (SITES_TLS=false).';
+  const lines = [];
+  if (!r.hosts.length) lines.push('This website has no own domain yet — add one: studio site domain add example.com');
+  for (const t of r.hosts) {
+    const what = {
+      active: `HTTPS active — ${t.source === 'acme' ? `certificate from ${t.issuer}` : t.source === 'custom' ? `uploaded certificate (${t.issuer})` : t.source === 'selfsigned' ? 'self-signed certificate (browsers warn)' : 'certificate'}${t.viaWildcard ? ` via ${t.viaWildcard}` : ''}${t.daysLeft !== null ? `, ${t.daysLeft} days left` : ''}`,
+      pending: 'certificate is being requested …',
+      error: `no certificate yet — ${t.error || 'the request failed'}`,
+      expired: 'the certificate has EXPIRED',
+      off: 'HTTPS is switched off for this host',
+      none: t.mode === 'custom' ? 'waiting for the user to upload a certificate (Website tab)' : 'no certificate yet',
+    }[t.status] || t.status;
+    lines.push(`${t.host}  [${t.mode}]  ${what}`);
+    if (t.status !== 'error' && t.error) lines.push(`    last problem: ${t.error}`);
+    if (t.nextTryAt && t.status !== 'active') lines.push(`    next automatic try: ${new Date(t.nextTryAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`);
+  }
+  for (const e of r.errors || []) lines.push(`error: ${e}`);
+  if (!h.tls.auto) lines.push('Automatic certificates are switched off — an admin switches them on (Admin → HTTPS), or the user uploads a certificate in the Website tab.');
+  else lines.push(`Automatic certificates: ${h.tls.ca}. The CA checks each domain over http://<domain>/ (port 80), so its DNS must point here first (studio site domain check).`);
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// studio skill — the user's skills (know-how the AI loads on demand)
+// ---------------------------------------------------------------------------
+const SKILL_TEMPLATE = (name) => `---
+name: ${name}
+description: One or two sentences on WHEN to use this skill — the AI decides by this text. Example: "Use when the user asks for a boss-fight theme: structure, instruments and mixing targets."
+areas: []            # empty = every area; or e.g. [music, video, game]
+---
+# ${name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+
+## Goal
+What a good result looks like.
+
+## Steps
+1. …
+2. …
+
+## Checks before answering
+- …
+`;
+
+async function skillCommand(sub, rest, opts, out) {
+  switch (sub) {
+    case 'list':
+    case 'ls':
+    case undefined: {
+      const r = await request('GET', `/skills${opts.all ? '?all=1' : ''}`);
+      out(r, r.skills.length
+        ? r.skills.map((s) => `${s.name.padEnd(26)} ${s.description}${s.areas.length ? `  [${s.areas.join(', ')}]` : ''}${s.auto ? '' : '  (only on /' + s.name + ')'}`).join('\n') +
+          '\nRead one before a matching task: studio skill show <name>'
+        : `No skills for this area yet${opts.all ? '' : ' (all areas: studio skill list --all)'}. Create one: studio skill new <name>`);
+      return;
+    }
+    case 'show':
+    case 'get':
+    case 'read': {
+      if (!rest[0]) throw new Error('usage: studio skill show <name>');
+      const r = await request('GET', `/skills/${encodeURIComponent(rest[0])}`);
+      out(r, `# Skill: ${r.skill.name} — ${r.skill.title}\n(${r.skill.description})\n\n${r.skill.body}`);
+      return;
+    }
+    case 'new':
+    case 'create': {
+      if (!rest[0]) throw new Error('usage: studio skill new <name>');
+      const name = slug(rest[0]);
+      const base = process.env.STUDIO_PROJECT_DIR ? path.join(process.env.STUDIO_PROJECT_DIR, 'skills') : path.resolve('skills');
+      const file = path.join(base, name, 'SKILL.md');
+      if (fs.existsSync(file) && !opts.force) throw new Error(`${file} exists (use --force to overwrite)`);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, SKILL_TEMPLATE(name));
+      const rel = path.relative(process.cwd(), file) || file;
+      out({ file }, `Created ${rel} — write the description (when to use it) and the instructions, then: studio skill save ${rel}`);
+      return;
+    }
+    case 'save':
+    case 'install':
+    case 'add': {
+      if (!rest[0]) throw new Error('usage: studio skill save <SKILL.md | folder with a SKILL.md>');
+      let file = path.resolve(process.cwd(), rest[0]);
+      if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'SKILL.md');
+      if (!fs.existsSync(file)) throw new Error(`${file} not found`);
+      const markdown = fs.readFileSync(file, 'utf8');
+      const body = { markdown };
+      if (opts.name && opts.name !== true) body.slug = String(opts.name);
+      else if (path.basename(file).toLowerCase() === 'skill.md' && !/^name:/m.test(markdown.split('\n---')[0])) body.slug = path.basename(path.dirname(file));
+      const r = await request('POST', '/skills', body);
+      out(r, `${r.updated ? 'Updated' : 'Saved'} the skill "${r.name}"${r.areas.length ? ` (areas: ${r.areas.join(', ')})` : ' (all areas)'} — it is active for the user now; they call it with /${r.name} and can edit or publish it on the Skills page.`);
+      return;
+    }
+    default:
+      throw new Error(`unknown "studio skill ${sub}" — run: studio help`);
+  }
+}
+
+async function main() {
+  const { pos, opts } = parseArgs(process.argv.slice(2));
+  const out = (data, text) => console.log(opts.json ? JSON.stringify(data, null, 2) : text);
+  const [cmd, sub, ...rest] = pos;
+
+  if (!cmd || cmd === 'help' || opts.help) {
+    console.log(HELP);
+    return;
+  }
+  if (cmd === 'whoami') {
+    const r = await request('GET', '/whoami');
+    out(r, `user: ${r.user.username} (${r.user.displayName})\nproject: #${r.project.id} ${r.project.name} [${r.project.area}]\nfolder: ${r.project.dir}`);
+    return;
+  }
+  if (cmd === 'tools') {
+    const r = await request('GET', '/tools');
+    out(r, formatTools(r));
+    return;
+  }
+  if (cmd === 'service' || cmd === 'services' || cmd === 'server') {
+    await serviceCommand(sub, rest, opts, out);
+    return;
+  }
+  if (cmd === 'site' || cmd === 'website' || cmd === 'sites') {
+    await siteCommand(sub, rest, opts, out);
+    return;
+  }
+  if (cmd === 'skill' || cmd === 'skills') {
+    await skillCommand(sub, rest, opts, out);
+    return;
+  }
+  if (cmd === 'release' || cmd === 'releases' || cmd === 'version') {
+    await releaseCommand(sub, rest, opts, out);
+    return;
+  }
+  if (cmd === 'wp' || cmd === 'wordpress') {
+    await wpCommand(sub, rest, opts, out);
+    return;
+  }
+  if (cmd === 'packs' || cmd === 'pack') {
+    if (packsCommand(sub, rest, opts, out) === 'install') {
+      if (!rest[0]) throw new Error('usage: studio packs install <folder>');
+      const r = await request('POST', '/packs/install', { path: path.resolve(process.cwd(), rest[0]) });
+      out(r, `Installed "${r.pack.name}" (${r.pack.id}) as your personal pack: ${r.pack.itemCount} items, ${fmtSize(r.pack.sizeBytes)}.\nUse it as ${r.pack.id}/<item>. The user can publish it to the Global Space on the website (Packs).`);
+    }
+    return;
+  }
+  if (cmd !== 'lib') throw new Error(`unknown command "${cmd}" — run: studio help`);
+
+  switch (sub) {
+    case 'search':
+    case 'find':
+    case 'ls': {
+      const qs = new URLSearchParams();
+      if (rest.length) qs.set('q', rest.join(' '));
+      if (opts.kind) qs.set('kind', String(opts.kind));
+      if (opts.scope) qs.set('scope', String(opts.scope));
+      if (opts.limit) qs.set('limit', String(opts.limit));
+      const r = await request('GET', `/library/search?${qs}`);
+      out(r, formatSearch(r));
+      return;
+    }
+    case 'info':
+    case 'show': {
+      if (!rest[0]) throw new Error('usage: studio lib info <asset-id>');
+      const r = await request('GET', `/library/${encodeURIComponent(rest[0])}`);
+      out(r, formatInfo(r.asset));
+      return;
+    }
+    case 'get':
+    case 'import': {
+      if (!rest[0]) throw new Error('usage: studio lib get <asset-id> [--to <folder>]');
+      const body = {};
+      if (opts.to) body.dest = path.resolve(process.cwd(), String(opts.to));
+      const r = await request('POST', `/library/${encodeURIComponent(rest[0])}/import`, body);
+      out(r, `Imported "${r.asset.name}" into ${r.dest}/\n${r.files.map((f) => '  ' + f).join('\n')}`);
+      return;
+    }
+    case 'add':
+    case 'save': {
+      if (!rest.length) throw new Error('usage: studio lib add <paths…> --name "Name" [--kind K] [--tags a,b] [--desc "…"]');
+      if (!opts.name || opts.name === true) throw new Error('--name "…" is required');
+      const body = {
+        paths: rest.map((p) => path.resolve(process.cwd(), p)),
+        name: String(opts.name),
+      };
+      if (opts.kind) body.kind = String(opts.kind);
+      if (opts.tags) body.tags = String(opts.tags);
+      if (opts.desc || opts.description) body.description = String(opts.desc || opts.description);
+      if (opts.main) body.main = String(opts.main);
+      const r = await request('POST', '/library', body);
+      out(r, `Saved to the library as ${r.asset.id} — "${r.asset.name}" [${r.asset.kind}], ${r.asset.files.length} file(s).\nThe user can publish it to the Global Space on the website.`);
+      return;
+    }
+    default:
+      throw new Error(`unknown "studio lib ${sub || ''}" — run: studio help`);
+  }
+}
+
+main().catch((err) => {
+  console.error(`studio: ${err.message}`);
+  process.exit(1);
+});

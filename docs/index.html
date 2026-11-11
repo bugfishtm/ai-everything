@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everything Studio — a self-hosted AI creative studio in one container</title>
+<meta name="description" content="Self-hosted creative workspace: music, images, 3D, video, games, Android and Windows apps, web apps and WordPress — built by an AI coding agent with your own account. One Docker container.">
+<meta name="theme-color" content="#090b10">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Everything Studio — a self-hosted AI creative studio in one container">
+<meta property="og:description" content="Self-hosted creative workspace: music, images, 3D, video, games, Android and Windows apps, web apps and WordPress — built by an AI coding agent with your own account. One Docker container.">
+<meta property="og:image" content="assets/img/dashboard.webp">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.svg" alt="" width="30" height="30">
+      <span>Everything Studio<small>ai-everything</small></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <nav class="nav-links" aria-label="Main">
+      <a href="index.html" aria-current="page">Overview</a><a href="install.html">Install</a><a href="server.html">Server &amp; HTTPS</a><a href="guide.html">Guide</a><a href="config.html">Configuration</a>
+      <a class="gh" href="https://github.com/bugfishtm/ai-everything" rel="noopener">GitHub <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+
+<div class="hero"><div class="wrap">
+  <span class="pill"><i></i> Version 1.4 · one Docker container · open source</span>
+  <h1>Describe it. <span class="grad">The studio builds it.</span></h1>
+  <p class="lead">Everything Studio is a self-hosted creative workspace. People log in, pick what they want to make —
+  a song, a game, an Android app, a WordPress site — and an AI coding agent builds it in a project of its own,
+  with <strong>their own</strong> AI account. Music, 3D and video are plain text files you can read, edit and version.</p>
+  <div class="cta">
+    <a class="btn primary" href="install.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></svg> Install it</a>
+    <a class="btn" href="guide.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg> How it works</a>
+    <a class="btn" href="https://github.com/bugfishtm/ai-everything" rel="noopener">GitHub <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+  </div>
+  <div class="hero-cmd"><span><b>$</b> docker compose up -d</span><span class="faint">→ http://localhost:8080</span></div>
+  <div class="hero-shot">
+    <figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>localhost:8080</span></div><img src="assets/img/dashboard.webp" alt="The home page of Everything Studio: ten creative areas to start a project in" width="1920" height="1200" loading="eager" decoding="async"></div></figure>
+  </div>
+</div></div>
+
+<section class="tight"><div class="wrap">
+  <div class="sec-head center">
+    <div class="eyebrow">What you can make</div>
+    <h2>Ten areas, one workspace</h2>
+    <p>Every area brings its own project template, its own instructions for the AI and the tools that fit —
+    so “make a calm lo-fi loop” and “build a tally counter app” both just work.</p>
+  </div>
+  <div class="grid g5">
+    <div class="card area" style="--c:#f472b6"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3>Music</h3><p>Songs written as text, played in a real DAW in the browser, rendered to WAV, MP3 and MIDI.</p></div>
+<div class="card area" style="--c:#fb923c"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></div><h3>Images</h3><p>Posters, icons, textures and pixel art — layers of shapes and text, rendered to PNG, JPG, WebP, ICO.</p></div>
+<div class="card area" style="--c:#60a5fa"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div><h3>3D models</h3><p>Props and scenes built to .glb, with a 3D editor to move, shape and texture them by hand.</p></div>
+<div class="card area" style="--c:#f87171"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></div><h3>Video</h3><p>Timelines with clips, titles, transitions and a soundtrack — and stick-figure animation.</p></div>
+<div class="card area" style="--c:#a3e635"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M6 12h4M8 10v4"/><path d="M15.5 13h.01M18 11h.01"/></svg></div><h3>JS games</h3><p>Browser games you play instantly in a sandboxed preview, with their own multiplayer server.</p></div>
+<div class="card area" style="--c:#34d399"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div><h3>Android apps</h3><p>Kotlin and Jetpack Compose, built into installable APKs with the Android SDK.</p></div>
+<div class="card area" style="--c:#38bdf8"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><h3>Windows software</h3><p>.NET and C/C++ programs, cross-compiled to .exe files and installers.</p></div>
+<div class="card area" style="--c:#c084fc"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg></div><h3>Web apps</h3><p>Sites and tools with a live preview — published on your own domains with HTTPS.</p></div>
+<div class="card area" style="--c:#3b82f6"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="3" width="7" height="7" rx="1"/><path d="M10 21V8a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H3"/></svg></div><h3>WordPress</h3><p>A real WordPress per project: set up with one click, extended with your own plugins and themes.</p></div>
+<div class="card area" style="--c:#94a3b8"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></div><h3>Anything else</h3><p>Scripts, research, documents — a blank workspace with every tool of the image.</p></div>
+  </div>
+</div></section>
+
+<section class="band"><div class="wrap">
+  <div class="sec-head">
+    <div class="eyebrow">How it works</div>
+    <h2>Your server, your accounts, your files</h2>
+    <p>The Studio is the workshop around the AI — it does not sell AI and does not see your subscription.</p>
+  </div>
+  <div class="grid g3 steps">
+    <div class="card step"><h3>Run one container</h3><p>Website, creative tools, toolchains and the database are in one image. Two Docker volumes hold everything you make. Nothing else to install.</p></div>
+    <div class="card step"><h3>Connect your own AI</h3><p>Each person signs in to Claude Code with their own subscription or API key. Admins can add OpenAI Codex, Google Gemini, OpenCode or any ACP agent.</p></div>
+    <div class="card step"><h3>Create in projects</h3><p>A project is a folder with its own chat, files, terminal, history and versions. The AI works inside it — in a Linux account of its own, apart from every other user.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head">
+    <div class="eyebrow">A closer look</div>
+    <h2>Not just a chat window</h2>
+    <p>The results are real files with real editors around them.</p>
+  </div>
+
+  <div class="feature">
+    <div>
+      <h3>A DAW for songs that are text</h3>
+      <p>Songs are YAML files the AI writes and you can read. Open one and it becomes a DAW — the engine that renders the final mix also plays every note you hear.</p>
+      <ul>
+        <li><b>Arrangement, piano roll, drum grid, mixer</b> — every edit changes only the touched lines of the file</li>
+        <li><b>Play and record</b> with a MIDI keyboard, the on-screen keys or your computer keyboard</li>
+        <li><b>Export</b> WAV, MP3, stems and MIDI — or one zip with everything</li>
+      </ul>
+    </div>
+    <figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Night Drive · night-drive.song.yaml</span></div><img src="assets/img/daw.webp" alt="The DAW: arrangement with five tracks, the drum step grid and the on-screen drum pads" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>The DAW with a lo-fi song: arrangement, step grid and drum pads</figcaption></figure>
+  </div>
+
+  <div class="feature flip">
+    <div>
+      <h3>A 3D editor for scenes that are text</h3>
+      <p>Models are scenes of shapes, materials and textures, built to <code>.glb</code>. Move, rotate and reshape objects in the view — the scene file stays the single source of truth.</p>
+      <ul>
+        <li><b>Organic shapes</b>, booleans, modifiers, procedural and image textures</li>
+        <li><b>Exports</b> for games and printing: glb, obj, stl, ply</li>
+        <li><b>The AI edits the same file</b> — nothing gets out of sync</li>
+      </ul>
+    </div>
+    <figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Coral Reef Props · reef.scene.yaml</span></div><img src="assets/img/editor3d.webp" alt="The 3D editor showing a low-poly fish above a seabed, with the object list on the left" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>A scene from the “organic” starter in the 3D editor</figcaption></figure>
+  </div>
+
+  <div class="feature">
+    <div>
+      <h3>WordPress, with your own plugins and themes</h3>
+      <p>A WordPress project is a real site: installed with one click, with its own database, its own PHP and its own address. Your code lives next to it, versioned, and runs in the site at once.</p>
+      <ul>
+        <li><b>Starters</b> for plugins, settings pages, Gutenberg blocks, REST APIs, block and classic themes</li>
+        <li><b>Manage</b> plugins, themes, updates, the PHP log and database exports from one tab</li>
+        <li><b>Export</b> an installable zip for any other WordPress</li>
+      </ul>
+    </div>
+    <figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Corner Bakery · WordPress</span></div><img src="assets/img/wordpress.webp" alt="The WordPress tab of a project: site status, addresses and three own modules with activate and export buttons" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>The WordPress tab: the site, and the plugins and theme written for it</figcaption></figure>
+  </div>
+
+  <div class="feature flip">
+    <div>
+      <h3>Versions you can release and go back to</h3>
+      <p>Every AI turn is saved in the project's history. Versioning adds numbers on top — 1.0.0, 1.1.0 — with notes, a changelog, a git tag and a kept copy of the finished files.</p>
+      <ul>
+        <li><b>Patch, minor, major</b> or your own number — in every area</li>
+        <li><b>Download</b> the files or the exports of any release, or restore it</li>
+        <li><b>“Release version 1.2”</b> works in the chat, too</li>
+      </ul>
+    </div>
+    <figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Snake Deluxe · History</span></div><img src="assets/img/releases.webp" alt="The History tab with three releases of a game, each with notes and download buttons" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Releases of a game: notes, files and exports per version</figcaption></figure>
+  </div>
+
+  <div class="feature">
+    <div>
+      <h3>Online with your own domain and HTTPS</h3>
+      <p>Web apps, games and WordPress sites go online straight from the Studio. Add a domain, point its DNS at the server — the certificate is requested and renewed by itself.</p>
+      <ul>
+        <li><b>One certificate per domain</b>: Let's Encrypt, your own, or self-signed</li>
+        <li><b>Backends included</b>: projects run their own Node.js servers for multiplayer, saves and APIs</li>
+        <li><b>No extra proxy needed</b> — or put Caddy, nginx or a CDN in front</li>
+      </ul>
+    </div>
+    <figure class="shot"><div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Pomodoro Timer · Website</span></div><img src="assets/img/website.webp" alt="The Website tab of a project: addresses, a publish button and three domains with HTTPS controls" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>A published web app with its domains</figcaption></figure>
+  </div>
+</div></section>
+
+<section class="band"><div class="wrap">
+  <div class="sec-head center">
+    <div class="eyebrow">Screenshots</div>
+    <h2>Around the Studio</h2>
+    <p>Click a picture to see it large.</p>
+  </div>
+  <div class="grid g3 gallery">
+    <figure class="shot"><div class="frame"><img src="assets/img/projects.webp" alt="The project list with versions, areas and online badges" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>All projects as a list: version, website, last opened</figcaption></figure>
+    <figure class="shot"><div class="frame"><img src="assets/img/area.webp" alt="An area page with starter ideas, projects and the skills the AI brings" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>An area: ideas to start from, its projects and tools</figcaption></figure>
+    <figure class="shot"><div class="frame"><img src="assets/img/workspace.webp" alt="A project workspace showing a rendered poster next to the file tree" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>A project: files, chat, terminal — and the rendered picture</figcaption></figure>
+    <figure class="shot"><div class="frame"><img src="assets/img/release-dialog.webp" alt="The dialog for a new release with patch, minor and major choices" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>A new release: number, notes, kept exports</figcaption></figure>
+    <figure class="shot"><div class="frame"><img src="assets/img/https.webp" alt="The HTTPS section of the admin page with the certificate list" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Admin: automatic certificates and the Studio's own address</figcaption></figure>
+    <figure class="shot"><div class="frame"><img src="assets/img/admin.webp" alt="The administration page with users and the toolchains of the image" width="1920" height="1200" loading="lazy" decoding="async"></div><figcaption>Admin: users and what the image contains</figcaption></figure>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head">
+    <div class="eyebrow">What is inside</div>
+    <h2>One image, a whole workshop</h2>
+  </div>
+  <div class="grid g3">
+    <div class="card"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></svg></div><h3>Text-driven creative software</h3><p>Five tools of its own that turn text into media — and that the AI can extend with plugins.</p>
+      <div class="tags"><span class="tag">studio-daw</span><span class="tag">studio-3d</span><span class="tag">studio-image</span><span class="tag">studio-video</span><span class="tag">studio-stickman</span></div></div>
+    <div class="card"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="m6 9 3 3-3 3M12 15h5"/></svg></div><h3>Toolchains</h3><p>Everything an app needs to be built and checked without leaving the container.</p>
+      <div class="tags"><span class="tag">Node.js</span><span class="tag">Python</span><span class="tag">.NET</span><span class="tag">mingw-w64</span><span class="tag">JDK + Gradle</span><span class="tag">ffmpeg</span><span class="tag">Chromium</span><span class="tag">PHP</span></div></div>
+    <div class="card"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 13v2M15 13v2M2 13v2M22 13v2"/></svg></div><h3>The AI you choose</h3><p>Claude Code is built in (downloaded at first start). Others run over the open Agent Client Protocol.</p>
+      <div class="tags"><span class="tag">Claude Code</span><span class="tag">OpenAI Codex</span><span class="tag">Gemini CLI</span><span class="tag">OpenCode</span><span class="tag">any ACP agent</span></div></div>
+    <div class="card"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></div><h3>Library and packs</h3><p>Save what you make as reusable assets, share them with everyone on the Studio, and add packs of instruments, samples, models and materials.</p></div>
+    <div class="card"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg></div><h3>Skills and instructions</h3><p>Teach the AI how you work: reusable know-how it loads when a task matches, and standing instructions per area.</p></div>
+    <div class="card"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Made for more than one person</h3><p>Every user is a Linux account of their own inside the container. Limits per user, an admin area, closed registration by default.</p></div>
+  </div>
+</div></section>
+
+<section class="band"><div class="wrap">
+  <div class="sec-head">
+    <div class="eyebrow">Get started</div>
+    <h2>Running in a few minutes</h2>
+    <p>You need Docker and about 15 GB of disk. The image is on Docker Hub, or build it yourself from the source.</p>
+  </div>
+  <div class="grid g2">
+    <div>
+      <div class="code"><div class="code-head"><span>On your computer</span><button class="copy" type="button">Copy</button></div><pre><code>git clone https://github.com/bugfishtm/ai-everything.git
+cd ai-everything
+docker compose pull        # the image from Docker Hub (or: --build)
+docker compose up -d
+<span class="c"># open http://localhost:8080 — the first account is the admin</span></code></pre></div>
+    </div>
+    <div>
+      <div class="code"><div class="code-head"><span>On a public server</span><button class="copy" type="button">Copy</button></div><pre><code>cp .env.server.example .env    # domain, e-mail, admin account
+docker compose up -d
+<span class="c"># https://studio.example.com — certificates come by themselves</span></code></pre></div>
+    </div>
+  </div>
+  <div class="grid g3" style="margin-top:8px">
+    <a class="card link" href="install.html"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></svg></div><h3>Install</h3><p>Requirements, first start, connecting an AI, updates and backups.</p><span class="more">Read the install guide →</span></a>
+    <a class="card link" href="server.html"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h3>Server &amp; HTTPS</h3><p>DNS, ports, Let's Encrypt, and running behind Caddy, nginx or a CDN.</p><span class="more">Set up a server →</span></a>
+    <a class="card link" href="guide.html"><div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></div><h3>Guide</h3><p>Projects, the editors, versioning, websites, WordPress and the admin area.</p><span class="more">Learn the Studio →</span></a>
+  </div>
+  <p class="faint small" style="margin-top:26px">Claude Code, the Android SDK and WordPress are not part of the image: each installation downloads them from their
+  official sources — Claude Code at first start, the Android SDK once an admin accepted its license, WordPress when a site is set up.
+  The image on Docker Hub: <a href="https://hub.docker.com/r/bugfishtm/ai-everything" rel="noopener">bugfishtm/ai-everything</a>.</p>
+</div></section>
+
+</main>
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="index.html">
+          <img src="assets/img/logo.svg" alt="" width="30" height="30">
+          <span>Everything Studio<small>ai-everything</small></span>
+        </a>
+        <p>A self-hosted creative studio in one container: music, images, 3D, video, games, apps and WordPress — built by an AI that works with your own account.</p>
+      </div>
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="install.html">Install</a></li>
+          <li><a href="server.html">Server &amp; HTTPS</a></li>
+          <li><a href="guide.html">Guide</a></li>
+          <li><a href="config.html">Configuration</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/bugfishtm/ai-everything" rel="noopener">Source on GitHub</a></li>
+          <li><a href="https://hub.docker.com/r/bugfishtm/ai-everything" rel="noopener">Image on Docker Hub</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/issues" rel="noopener">Issues</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="https://bugfishtm.github.io/privacy.html">Privacy</a></li>
+          <li><a href="https://bugfishtm.github.io/impressum.html">Impressum</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/LICENSE.md" rel="noopener">License (GPL-3.0)</a></li>
+          <li><a href="https://github.com/bugfishtm/ai-everything/blob/main/docs/LICENSES.md" rel="noopener">Third-party software</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>🐟 Bugfish · ai-everything is independent open-source software. It is not affiliated with or endorsed by Anthropic, OpenAI, Google or the WordPress Foundation. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+      <span><a href="https://bugfishtm.github.io/privacy.html">Privacy</a> · <a href="https://bugfishtm.github.io/impressum.html">Impressum</a></span>
+    </div>
+  </div>
+</footer>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>
