@@ -88,7 +88,7 @@ Save what you make as reusable assets, share them with everyone on the Studio, a
 
 ### 🛡️ Made for more than one person
 
-One Linux account per user, sandboxed previews, websites on their own origins, confined PHP for WordPress sites, rate-limited logins, limits per user, an admin area — see the [security model](https://bugfishtm.github.io/ai-everything/config.html#security-model).
+One Linux account per user, sandboxed previews, websites on their own origins, confined PHP for WordPress sites, rate-limited logins, optional two-step sign-in with an authenticator app, limits per user, an admin area — see the [security model](https://bugfishtm.github.io/ai-everything/config.html#security-model).
 
 ---
 

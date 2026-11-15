@@ -34,14 +34,18 @@ scene:
 - Times are `"bar:beat"`: `t: "13:1"` is the first beat of the drop. Lengths in beats: `dur: "2b"`.
 - Big changes (new figure, camera cut, costume, background energy) go on the first beat of a section.
 - Strong moves land on beats 1 and 3, hits on the snare (2 and 4), small moves on off-beats.
-- `do: dance, beats: 16` dances on the beat; `fx: bounce` or `fx: nod` keeps idle figures in time.
+- `do: dance, beats: 16` hits every move on the beat (`moves: [step, sway, arms, clap, point, roll, turn]`
+  picks them; the default mix differs per figure); `fx: bounce` (`{ use: bounce, hop: 0 }` keeps the
+  feet down) or `fx: nod` keeps idle figures in time.
 - `do: combo, gap: "1b"` lands one hit per beat.
 
 ## 3. Check sync
 
 ```bash
 studio-stickman info src/<name>.stick.yaml            # every item with seconds and bar:beat
-studio-stickman render src/<name>.stick.yaml --draft --from "13:1" --to "17:1"
+studio-stickman sheet src/<name>.stick.yaml --at 13:1,13:2,13:3,13:4 --focus action   # one bar, beat by beat
+studio-stickman at src/<name>.stick.yaml 13:1          # who does what on the first beat of the drop
+studio-stickman render src/<name>.stick.yaml --draft --from "13:1" --to "17:1"   # at 120 bpm → exports/<name>-24-32s.draft.mp4
 ```
 
 Compare the times in `info` with the song sections. If everything is late by the same amount,
@@ -61,4 +65,5 @@ set `volume: 0` on scenes that carry the same music themselves). Cut on bars. Se
 
 ## 6. Deliver
 
-`studio-stickman render src/<name>.stick.yaml --preview` → MP4 with the song and the effects mixed.
+`studio-stickman render src/<name>.stick.yaml --preview` → `exports/<name>.mp4` with the song and the
+effects mixed, and the contact sheet `.studio/previews/<name>-sheet.png` to read once more.

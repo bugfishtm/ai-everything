@@ -200,12 +200,18 @@ camera:
 ```
 
 `studio-stickman render duel.stick.yaml --preview` → `exports/duel.mp4` (H.264 + AAC, sound effects
-synthesized and mixed, optional soundtrack from studio-daw) and a **contact sheet** of the key
-moments that the AI reads to see its own animation. Figures are ten joint angles: 50 poses, 40
-actions (walk, jump, punch/kick/combo with hit reactions and knock-outs, gestures, dance on the
-beat), speech bubbles, props (also in hands), nine backdrops, camera moves, particles, GIF/WebM
-and transparent **sprite sheets** for games. Like the other tools it is extended in Python:
-`studio-stickman plugin new backflip --kind action|pose|prop|fx|backdrop|sound`.
+synthesized and mixed, footsteps included, optional soundtrack from studio-daw) and a **contact
+sheet** of the key moments (`.studio/previews/duel-sheet.png`) that the AI reads to see its own
+animation. The AI works in this order: `check` (every problem with its line) → `sheet --focus action`
+(close-ups; `--step 1f` for every frame of an impact, `--onion` / `--markers` for motion and feet) →
+`at 5:1` (one moment as text: poses, actions, gaps, camera) → `render --draft`
+(`exports/duel.draft.mp4`) → `render`. Figures are ten joint angles with planted feet and joint
+limits: 59 poses, 49 actions (walk/run with real footsteps, jump, crawl, climb, roll, sit, carry,
+punch/kick/combo that reach their target, blocks and dodges that stop them, springy hit reactions
+and knock-outs, gestures, dance on the beat), speech bubbles, props (also in hands), nine backdrops,
+camera moves, particles, GIF/WebM and transparent **sprite sheets** for games. Like the other
+tools it is extended in Python:
+`studio-stickman plugin new backflip --kind action|pose|prop|fx|backdrop|sound|particle`.
 Reference: [tools/studio-stickman/README.md](../tools/studio-stickman/README.md).
 
 ### studio-image — pictures from text
@@ -354,6 +360,18 @@ restored later; the version shows in the project's title bar and in the project 
 While Claude works the chat shows what happens right now — "Writing src/fish.scene.yaml · 6.1 KB"
 with the last lines being written, thinking, commands being prepared, API retries — with a timer,
 so a long step never looks like a hang.
+
+**Queueing messages.** You can keep typing while the AI works: Enter (or **Queue**) puts the next
+message in the chat's queue instead of interrupting. Queued messages are shown under the
+conversation (edit or remove them until they start) and are answered one after another, each as a
+turn of its own, once the current turn is done. **Stop**, a failed turn or a restart of the Studio
+pauses the queue — nothing runs on unattended — and **Continue** picks it up again. A chat holds up
+to 20 waiting messages.
+
+**Side chat (`/btw`).** `/btw what did it just change?` (or the **Side chat** button) asks a quick
+question about the chat without adding it to the conversation and without interrupting a running
+turn. Claude answers in a separate, throwaway session from a summary of the chat (and may read
+project files, but changes nothing); the side conversation stays in your browser tab.
 
 ## Skills and instructions — teach the AI how you work
 
@@ -512,7 +530,13 @@ IPv6 — a certificate authority checks a domain that has an AAAA record over IP
   creates the admin account — from outside the server's private network only with the **setup
   code** from the log (`docker compose logs studio | grep "setup code"`).
 - **Accounts**: `REGISTRATION=closed` (default) — admins create users. Logins are rate-limited
-  per address.
+  per address. Everyone can switch on **two-step sign-in** (Account & AI → Two-step sign-in): a
+  6-digit code from an authenticator app after the password, with 10 single-use recovery codes.
+  Lost phone and codes: an admin switches it off in Admin → Users (*Reset 2FA*); for the last
+  admin, `docker compose exec studio studio-db reset-2fa <user>` (with an external database run
+  `UPDATE users SET totp_secret_enc = NULL, totp_enabled_at = NULL, totp_last_step = NULL,
+  totp_failed_count = 0 WHERE username = '<user>'; DELETE FROM user_recovery_codes WHERE user_id =
+  (SELECT id FROM users WHERE username = '<user>');` in its SQL client).
 - **Backups**: `./scripts/backup.sh` (the database including the WordPress sites' databases,
   and the data volume). Keep the data volume's `home/.studio/app-secret` — or set `APP_SECRET`
   — or stored keys and certificates cannot be read after a restore.
@@ -570,6 +594,14 @@ version and has an update button.
 - `<name>.localhost` addresses answer only on the server and its private network.
 - Registration is closed by default; the first account from outside the private network needs the
   setup code from the server log. Use HTTPS on the internet (see *Running on a public server*).
+- Two-step sign-in (optional, per account) uses standard TOTP (RFC 6238: SHA-1, 6 digits, 30 s).
+  The app's secret is stored encrypted with the app secret, recovery codes only as keyed hashes;
+  a code is accepted once (replays are refused). Guessing is throttled per account and address
+  (5 codes per 15 minutes) and capped for good: after 10 wrong codes in a row only a recovery code
+  or an admin reset gets in. Every wrong code is logged, and the owner is told at the next sign-in
+  and under Account & AI. The step after the password is a signed ticket valid for 5 minutes that
+  a new password invalidates. Switching it on or off, and new recovery codes, need the password
+  again plus a code; switching it on ends every session of the account and starts a new one.
 
 ## Legal: Claude Code, Android SDK and publishing
 
@@ -633,9 +665,12 @@ cd web && npm install && npm run dev           # website on :5173, proxies to a 
 
 ## Roadmap
 
+A longer, prioritised list of missing functions (checked against the code) is in
+[MISSING-FEATURES.md](MISSING-FEATURES.md). Planned next:
+
 - a visual editor for pictures and video timelines on the website (like the DAW for songs and the 3D editor for scenes)
 - automation lanes and loops/audio clips in the website DAW, DNS-01 for automatic wildcard certificates
-- hand-painted UV unwrapping and a point editor in the view for studio-3d, walk cycles on slopes and lip-sync in studio-stickman
+- hand-painted UV unwrapping and a point editor in the view for studio-3d, walk cycles on slopes and mouths that follow a voice track in studio-stickman
 - per-user disk quotas, collaboration on projects
 
 ## License

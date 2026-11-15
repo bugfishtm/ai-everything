@@ -15,6 +15,7 @@ import { assetRoot } from './library.js';
 import { reloadPacks } from './packs.js';
 import { setServicesOwnerDisabled } from './services.js';
 import { getSetting, setSetting } from './settings.js';
+import { disableTwoFactor } from './twofactor.js';
 import { allTools, detectToolchains, getToolchains, loadTools, publicTool } from './tools.js';
 import { createUser, emailSchema, getUser, listUsers, passwordSchema, publicUser, usernameSchema } from './users.js';
 import { closeUserSockets, connectedClients } from './ws.js';
@@ -58,6 +59,8 @@ adminRouter.patch('/admin/users/:id', async (req, res) => {
       status: z.enum(['active', 'disabled']).optional(),
       password: passwordSchema.optional(),
       displayName: z.string().trim().min(1).max(128).optional(),
+      /** switch two-step sign-in off for someone who lost the phone and the recovery codes */
+      resetTwoFactor: z.literal(true).optional(),
     }),
     req.body,
   );
@@ -65,6 +68,13 @@ adminRouter.patch('/admin/users/:id', async (req, res) => {
   if (!target) throw new HttpError(404, 'User not found');
   if (id === req.user!.id && (body.role === 'user' || body.status === 'disabled')) {
     throw new HttpError(400, 'You cannot demote or disable yourself');
+  }
+  if (id === req.user!.id && body.resetTwoFactor) {
+    throw new HttpError(400, 'Switch your own two-step sign-in off under Account & AI (it asks for your password and a code)');
+  }
+  if (body.resetTwoFactor) {
+    await disableTwoFactor(id);
+    console.log(`[admin] ${req.user!.username} switched two-step sign-in off for ${target.username} (#${id})`);
   }
   if (body.role && body.role !== target.role) {
     await exec('UPDATE users SET role = ? WHERE id = ?', [body.role, id]);

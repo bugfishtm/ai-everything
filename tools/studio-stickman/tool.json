@@ -1,25 +1,30 @@
 {
   "id": "studio-stickman",
   "name": "Studio Stickman",
-  "version": "0.1.0",
-  "description": "Stick figure animation from text: scenes are YAML (figures, poses and actions on a timeline, props, camera, words, sound effects) rendered to MP4/GIF/WebM with a contact sheet to look at; sprite sheets for games. Fights, dialogues, dances on the beat of a studio-daw song. Extensible with Python plugins (poses, actions, props, backdrops, sounds).",
+  "version": "0.2.0",
+  "description": "Stick figure animation from text: scenes are YAML (figures, poses and actions on a timeline, props, camera, words, sound effects) rendered to MP4/GIF/WebM; contact sheets (close-ups, every frame, onion skin) and a text view of any moment to check it; sprite sheets for games. Fights with blocks and knock-outs, dialogues, dances on the beat of a studio-daw song; walking feet stay planted. Extensible with Python plugins (poses, actions, fx, props, backdrops, sounds, particles).",
   "areas": ["video", "game", "image", "general"],
   "packTypes": ["video", "game"],
   "commands": [
-    { "usage": "studio-stickman new <file.stick.yaml> [--template fight|talk|dance|blank]", "description": "create a starter scene" },
-    { "usage": "studio-stickman check <scene>", "description": "validate fast (names, parameters, reach and timing warnings)" },
-    { "usage": "studio-stickman sheet <scene> [--at T,T,…] [--from T --to T]", "description": "contact sheet PNG of the key moments — look at it before rendering" },
-    { "usage": "studio-stickman render <scene> [--preview] [--draft] [--from T --to T] [--gif] [--webm] [--frames]", "description": "render to exports/<name>.mp4 with sound (+ contact sheet PNG to look at)" },
-    { "usage": "studio-stickman still <scene> <t…>", "description": "single frames as PNG" },
-    { "usage": "studio-stickman sprite <scene> --figure NAME [--from T --to T] [--frames 8] [--size 128]", "description": "transparent sprite sheet + atlas JSON for games" },
-    { "usage": "studio-stickman list [poses|actions|fx|props|backdrops|sounds|particles] [words]", "description": "what scenes can use (built-ins, plugins, packs) with parameters" },
-    { "usage": "studio-stickman poses [words] --preview", "description": "pose catalogue as a picture" },
-    { "usage": "studio-stickman plugin new <name> [--kind action|pose|prop|fx|backdrop|sound]", "description": "extend the tool with your own Python (plugins/stickman/)" },
-    { "usage": "studio-stickman docs", "description": "full scene format reference" }
+    {"usage": "studio-stickman new <file> [--template fight|talk|dance|blank] [--force]", "description": "create a starter scene from a template"},
+    {"usage": "studio-stickman check <scene>… [--strict]", "description": "validate scenes fast: names, parameters, timing; plays them through to catch plugin and drawing errors"},
+    {"usage": "studio-stickman sheet <scene> [--at T,T,…] [--from T] [--to T] [--count N] [--step S] [--cols N] [--width PX] [--focus NAME] [--onion N] [--markers] [--out FILE] [--name N]", "description": "contact sheet PNG of the key moments (or --at / --step frames) — read it before rendering"},
+    {"usage": "studio-stickman at <scene> <t>…", "description": "the state at a time as text: pose, position, action, camera view, events, gaps between figures"},
+    {"usage": "studio-stickman info <scene>", "description": "who does what when, with the moment each strike lands"},
+    {"usage": "studio-stickman render <scene> [--preview] [--draft] [--from T] [--to T] [--fps N] [--scale F] [--res 360p|480p|540p|720p|1080p|1440p|2160p|4k] [--gif] [--webm] [--frames] [--no-audio] [--jobs N] [--progress auto|text|json|none] [--out DIR] [--name N]", "description": "render the video: MP4 with sound (+ GIF, WebM, PNG frames, contact sheet); --draft for a quick look"},
+    {"usage": "studio-stickman still <scene> <t>… [--scale F] [--out DIR] [--name N]", "description": "single frames as PNG"},
+    {"usage": "studio-stickman sprite <scene> --figure NAME [--from T] [--to T] [--frames N] [--size PX] [--cols N] [--out DIR] [--name N]", "description": "transparent sprite sheet + atlas JSON of one figure, for games"},
+    {"usage": "studio-stickman list [<kind>] [<word>…]", "description": "what scenes can use: poses, actions, fx, props, backdrops, sounds, particles, hats, expressions, eases, events"},
+    {"usage": "studio-stickman poses [<word>…] [--preview] [--out FILE]", "description": "the pose catalogue (--preview: a picture of every pose with its name)"},
+    {"usage": "studio-stickman plugin new <name> [--kind action|pose|prop|fx|backdrop|sound|particle]", "description": "write a starter plugin that extends the tool (plugins/stickman/<name>.py)"},
+    {"usage": "studio-stickman watch <scene> [--sheet] [--at T,T,…] [--focus NAME] [--strict] [--interval S] [--max-runs N] [--timeout S]", "description": "check (and sheet) a scene again every time it or a plugin is saved"},
+    {"usage": "studio-stickman schema [--out FILE]", "description": "JSON Schema of the scene format, made from the registries (editors, self-checks)"},
+    {"usage": "studio-stickman doctor", "description": "check the setup: Python, ffmpeg and its encoders, parallel rendering, project folder, plugins, fonts, a test render"},
+    {"usage": "studio-stickman docs [<topic>]", "description": "the format reference (README), or one part of it: docs actions"}
   ],
   "formats": [
-    { "ext": ".stick.yaml", "description": "scene: scene/figures/props/timeline/camera/events (studio-stickman docs)" },
-    { "ext": "plugins/stickman/*.py", "description": "pose/action/fx/prop/backdrop/sound/particle plugins (studio_stickman.api)" }
+    {"ext": ".stick.yaml", "description": "scene: scene/figures/props/timeline/camera/events (studio-stickman docs)"},
+    {"ext": "plugins/stickman/*.py", "description": "pose/action/fx/prop/backdrop/sound/particle plugins (studio_stickman.api; studio-stickman plugin new <name> --kind …)"}
   ],
   "docs": "README.md"
 }

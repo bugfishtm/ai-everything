@@ -18,12 +18,16 @@ and a mixed soundtrack — rendered to `exports/<name>.mp4`. **Read the referenc
 `studio-stickman`: the scene is a text file `src/<name>.stick.yaml` (figures, poses and actions
 on a timeline, props, camera, words, sound effects), rendered to `exports/<name>.mp4`.
 - `studio-stickman new src/<name>.stick.yaml --template fight|talk|dance|blank`, then edit the file.
-- Look before you render: `studio-stickman sheet src/<name>.stick.yaml` and read the contact sheet
-  PNG; `studio-stickman render … --draft` for a fast test, `render … --preview` for the final.
-- Music: make it with `studio-daw` (`exports/<song>.mp3`), set `scene.audio` and `scene.bpm` —
-  then moves can sit on beats (`t: "5:1"`). The user can run Check / Draft / Render in the Files tab.
-- Missing a move, prop or place? Add it: `studio-stickman plugin new <name> --kind action|pose|prop|fx|backdrop|sound`.
-- Full reference: `studio-stickman docs`.
+- Look before you render, in this order: `studio-stickman check …` (errors with line numbers) →
+  `studio-stickman sheet … --focus action` and read the contact sheet PNG (close-ups of the key
+  moments) → `studio-stickman at … 6.2` for a moment that looks wrong (poses, actions, gaps as text)
+  → `render … --draft` (a fast test, `exports/<name>.draft.mp4`) → `render … --preview` for the final
+  (`exports/<name>.mp4` + `.studio/previews/<name>-sheet.png`).
+- Music: make it with `studio-daw` and set `scene.audio: src/<song>.song.yaml` (its bpm is taken
+  over; for an audio file set `scene.bpm`) — then moves can sit on beats (`t: "5:1"`). The user can
+  run Check / Draft / Render in the Files tab.
+- Missing a move, prop or place? Add it: `studio-stickman plugin new <name> --kind action|pose|prop|fx|backdrop|sound|particle`.
+- Full reference: `studio-stickman docs` (one part: `studio-stickman docs actions`); setup problems: `studio-stickman doctor`.
 
 **Anything else** (screen recordings, special effects, formats the tools do not cover): ffmpeg
 directly — `ffmpeg -y -framerate 30 -i .studio/frames/%05d.png -c:v libx264 -pix_fmt yuv420p -crf 20

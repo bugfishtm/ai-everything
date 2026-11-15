@@ -55,7 +55,8 @@ export interface RunUsage {
   userId: number;
   projectId: number | null;
   chatId: number | null;
-  kind: 'chat' | 'casual';
+  /** side: a /btw side question (claude/side.ts) */
+  kind: 'chat' | 'casual' | 'side';
   /** 'claude' or an ACP agent id */
   provider?: string;
   model: string | null;

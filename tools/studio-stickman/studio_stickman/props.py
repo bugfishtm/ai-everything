@@ -14,6 +14,15 @@ from .skeleton import color, hash01, mix, shade
 INK = "#0c0d11"
 
 
+def _glow(c, center, r, col, strength) -> None:
+    """A smooth glow (Canvas.glow); plugins' own canvases without it get the old stacked discs."""
+    if hasattr(c, "glow"):
+        c.glow(center, r, col, strength)
+    else:
+        for i, rr in enumerate((r, r * 0.69, r * 0.44)):
+            c.circle(center, rr, fill=color(col)[:3] + (22 + i * 14,))
+
+
 # ---------------------------------------------------------------------------
 # Scenery props (stand on the floor)
 # ---------------------------------------------------------------------------
@@ -121,8 +130,7 @@ def lamp(c, p, t):
     c.rect(-16, -6, 32, 6, fill="#2d3038", outline=INK, width=1.5)
     c.line((0, -6), (0, -h + 30), 5, "#3b3f49")
     if p["on"]:
-        for i, r in enumerate((90, 62, 40)):
-            c.circle((0, -h + 6), r, fill=color(p["color"]) + (22 + i * 14,))
+        _glow(c, (0, -h + 6), 100, p["color"], 0.6)
     c.poly([(-22, -h + 34), (22, -h + 34), (13, -h), (-13, -h)], fill=p["color"] if p["on"] else "#8b8f99", outline=INK, width=2)
 
 
@@ -319,7 +327,8 @@ def room(c, w, h, floor, p):
     c.rect(0, floor - 16, w, 16, fill=shade(wall, 30), outline=shade(wall, -60), width=1.5)
     if p["window"]:
         x = w * 0.72
-        c.poly([(x - 110, floor - 150), (x + 110, floor - 150), (x + 190, h), (x - 60, h)], fill=(255, 250, 220, 26))
+        # the window's light falls on the floor (it used to start 150 px up the wall)
+        c.poly([(x - 92, floor + 2), (x + 92, floor + 2), (x + 200, h), (x - 20, h)], fill=(255, 250, 220, 34))
         c.rect(x - 96, floor - 330, 192, 150, fill="#eef2f6", outline=shade(wall, -90), width=3)
         _vgrad(c.at((x - 88, floor - 322)), 176, 0, 134, "#8fc4f0", "#d6ecff", 12)
         c.line((x, floor - 322), (x, floor - 188), 6, "#eef2f6")
@@ -341,15 +350,25 @@ def street(c, w, h, floor, p):
         c.circle((w * 0.82, floor * 0.22), 34, fill="#f4f1d8")
     x = -20.0
     i = 0
+    # by day: a few façade colours, and windows that reflect the sky (some darker, a few open)
+    day = [(150, 160, 178), (178, 160, 148), (143, 156, 146), (190, 180, 160), (128, 142, 166)]
     while x < w + 40:
         bw = 70 + hash01(i, 4, p["seed"]) * 110
         bh = 120 + hash01(i, 5, p["seed"]) * 300
-        col = (22 + int(hash01(i, 6) * 16), 26 + int(hash01(i, 7) * 14), 44 + int(hash01(i, 8) * 20)) if night else (150, 160, 178)
+        col = (22 + int(hash01(i, 6) * 16), 26 + int(hash01(i, 7) * 14), 44 + int(hash01(i, 8) * 20)) if night else day[int(hash01(i, 9, p["seed"]) * len(day)) % len(day)]
         c.rect(x, floor - bh, bw, bh, fill=col)
+        if not night:
+            c.rect(x, floor - bh, bw, 5, fill=shade(col, -24))
         for wy in range(int(floor - bh + 16), int(floor - 20), 30):
             for wx in range(int(x + 12), int(x + bw - 14), 24):
-                lit = hash01(wx, wy, p["seed"]) > (0.55 if night else 2)
-                c.rect(wx, wy, 11, 15, fill=(255, 214, 120, 230) if lit else shade(col, 16 if night else -20))
+                hv = hash01(wx, wy, p["seed"])
+                if night:
+                    c.rect(wx, wy, 11, 15, fill=(255, 214, 120, 230) if hv > 0.55 else shade(col, 16))
+                else:
+                    glass = mix((196, 224, 246), (92, 112, 140), 0.15 + 0.6 * hash01(wx, wy, 7))
+                    c.rect(wx - 1, wy - 1, 13, 17, fill=shade(col, -34))
+                    c.rect(wx, wy, 11, 15, fill=glass if hv > 0.1 else (60, 66, 80))
+                    c.line((wx + 2, wy + 12), (wx + 8, wy + 3), 1.4, (255, 255, 255, 120))
         x += bw + 6
         i += 1
     c.rect(0, floor, w, h - floor, fill="#2b2e36" if night else "#8d939e")
@@ -404,8 +423,8 @@ def field(c, w, h, floor, p):
     sky, grass = color(p["sky"]), color(p["grass"])
     _vgrad(c, w, 0, floor, sky, mix(sky, (255, 255, 255), 0.55))
     if p["sun"]:
-        for r, a in ((90, 40), (64, 70), (44, 255)):
-            c.circle((w * 0.8, floor * 0.25), r, fill=(255, 240, 170, a))
+        _glow(c, (w * 0.8, floor * 0.25), 120, (255, 240, 170), 0.8)
+        c.circle((w * 0.8, floor * 0.25), 44, fill=(255, 240, 170))
     for i, (cx, r) in enumerate(((w * 0.18, w * 0.3), (w * 0.62, w * 0.36), (w * 0.95, w * 0.26))):
         c.ellipse((cx, floor + r * 0.42), r, r * 0.7, fill=mix(grass, sky, 0.45 - i * 0.08), n=40)
     for i in range(5):
@@ -455,13 +474,19 @@ def void(c, w, h, floor, p):
 # ---------------------------------------------------------------------------
 # Particles — fn(c, x, y, age, u, seed, p): one particle; u = age / life (0 … 1)
 # ---------------------------------------------------------------------------
-@particle("spark", params={"color": "#ffe9a0", "size": 4, "gravity": 0}, doc="short bright streaks (impacts)")
+@particle("spark", params={"color": "#ffe9a0", "size": 4, "gravity": 0, "outline": INK}, doc="short bright streaks with a dark edge (impacts)")
 def spark(c, x, y, age, u, seed, p):
-    col = color(p["color"]) + (int(255 * (1 - u)),)
+    # a dark edge and a white core: a pale streak alone vanished on light walls (contrast 1.04 on the dojo)
+    a = 1 - u
     vx, vy = p["_v"]
     n = math.hypot(vx, vy) or 1.0
-    k = p["size"] * 4 * (1 - u)
-    c.line((x, y), (x - vx / n * k, y - vy / n * k), max(1.0, p["size"] * 0.6 * (1 - u)), col)
+    k = p["size"] * 4.5 * a
+    tail = (x - vx / n * k, y - vy / n * k)
+    w = max(1.0, p["size"] * 0.7 * a)
+    if p.get("outline"):
+        c.line((x, y), tail, w + 2.5, color(p["outline"])[:3] + (int(230 * a),))
+    c.line((x, y), tail, w, color(p["color"])[:3] + (int(255 * a),))
+    c.line((x, y), ((x + tail[0]) / 2, (y + tail[1]) / 2), max(1.0, w * 0.4), (255, 255, 255, int(255 * a)))
 
 
 @particle("dust", params={"color": "#cbbfa8", "size": 9}, doc="soft puffs near the floor")

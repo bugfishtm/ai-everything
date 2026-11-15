@@ -55,19 +55,36 @@ export function AdminPage() {
 
   if (user?.role !== 'admin') return <Navigate to="/" replace />;
 
-  const patchUser = async (u: AdminUser, body: Record<string, unknown>) => {
+  /** true when the change went through (errors are shown as a toast) */
+  const patchUser = async (u: AdminUser, body: Record<string, unknown>): Promise<boolean> => {
     try {
       await api(`/admin/users/${u.id}`, { method: 'PATCH', body });
       void load();
+      return true;
     } catch (err) {
       ui.toast(errMsg(err), 'error');
+      return false;
     }
   };
   const resetPassword = async (u: AdminUser) => {
     const pw = await ui.prompt(`New password for @${u.username}`, '', 'At least 8 characters — tell it to the user.');
     if (!pw) return;
-    await patchUser(u, { password: pw });
-    ui.toast('Password changed');
+    if (await patchUser(u, { password: pw })) ui.toast('Password changed');
+  };
+  const resetTwoFactor = async (u: AdminUser) => {
+    const ok = await ui.confirm({
+      title: `Switch two-step sign-in off for @${u.username}?`,
+      body: (
+        <>
+          For someone who lost the phone with the authenticator app <b>and</b> the recovery codes. Logging in then needs only the password again — make sure you
+          are really talking to <b>{u.displayName}</b>. They can switch it on again under Account &amp; AI.
+        </>
+      ),
+      confirm: 'Switch off',
+      danger: true,
+    });
+    if (!ok) return;
+    if (await patchUser(u, { resetTwoFactor: true })) ui.toast(`Two-step sign-in of @${u.username} is off`);
   };
   const deleteUser = async (u: AdminUser) => {
     const ok = await ui.confirm({
@@ -147,6 +164,7 @@ export function AdminPage() {
                   <th>User</th>
                   <th>Role</th>
                   <th>Status</th>
+                  <th title="Two-step sign-in with an authenticator app">2FA</th>
                   <th>Projects</th>
                   <th>Assets</th>
                   <th>Last login</th>
@@ -166,6 +184,7 @@ export function AdminPage() {
                     <td>
                       <span className={`badge ${u.status === 'active' ? 'ok' : 'danger'}`}>{u.status}</span>
                     </td>
+                    <td>{u.twoFactor ? <span className="badge ok">on</span> : <span className="faint small">off</span>}</td>
                     <td>{u.projects}</td>
                     <td>{u.assets}</td>
                     <td className="faint small">{u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'never'}</td>
@@ -181,6 +200,11 @@ export function AdminPage() {
                           <button className="btn sm ghost" onClick={() => resetPassword(u)}>
                             Reset password
                           </button>
+                          {u.twoFactor && (
+                            <button className="btn sm ghost" onClick={() => void resetTwoFactor(u)} title="Switch two-step sign-in off (lost phone and recovery codes)">
+                              Reset 2FA
+                            </button>
+                          )}
                           <button className="btn sm ghost" style={{ color: 'var(--danger)' }} onClick={() => void deleteUser(u)} title="Delete the account with all its data">
                             <Trash2 size={14} />
                           </button>

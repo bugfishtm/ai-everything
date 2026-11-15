@@ -17,6 +17,7 @@ import { hooks } from '../hooks.js';
 import { HttpError, intParam, notFound, parse } from '../lib/http.js';
 import { ensureSysUser, killTree, spawnAs, type SysUser } from '../lib/system.js';
 import { userRemove } from '../lib/userfs.js';
+import { getUser } from '../users.js';
 import {
   authorOf,
   getProjectRow,
@@ -96,6 +97,10 @@ interface ActiveRun {
   touchedFiles: boolean;
   blocks: Map<number, StreamBlock>;
   lastActivityAt: number;
+  /** what it is doing right now (for the side chat) */
+  activityText: string;
+  /** the turn ended with an error result (e.g. the API refused): pauses the message queue */
+  resultError: boolean;
 }
 
 const runs = new Map<number, ActiveRun>();
@@ -125,7 +130,7 @@ function publicChat(c: ChatRow) {
   };
 }
 
-async function loadOwnedChat(user: AuthUser, chatId: number): Promise<{ chat: ChatRow; project: ProjectRow }> {
+export async function loadOwnedChat(user: AuthUser, chatId: number): Promise<{ chat: ChatRow; project: ProjectRow }> {
   const chat = await q1<ChatRow>('SELECT * FROM chats WHERE id = ?', [chatId]);
   if (!chat) throw notFound('Chat not found');
   const project = await getProjectRow(chat.project_id);
@@ -159,6 +164,7 @@ async function addEvent(chatId: number, kind: string, payload: unknown): Promise
 // Live activity: what Claude is doing right now (shown above the composer)
 // ---------------------------------------------------------------------------
 function activity(run: ActiveRun, text: string, extra: { detail?: string } = {}, force = false): void {
+  run.activityText = text;
   const now = Date.now();
   if (!force && now - run.lastActivityAt < 300) return;
   run.lastActivityAt = now;
@@ -353,6 +359,7 @@ async function handleLine(run: ActiveRun, obj: any): Promise<void> {
     }
     case 'result': {
       run.gotResult = true;
+      run.resultError = !!obj.is_error;
       run.blocks.clear();
       const text = typeof obj.result === 'string' ? obj.result : '';
       const eventId = await addEvent(chatId, 'result', {
@@ -470,6 +477,8 @@ async function spawnRun(user: AuthUser, chat: ChatRow, project: ProjectRow, prom
     touchedFiles: false,
     blocks: new Map(),
     lastActivityAt: 0,
+    activityText: '',
+    resultError: false,
     timer: setTimeout(() => {
       void addEvent(chat.id, 'error', { message: `Stopped after ${config.limits.runTimeoutMin} minutes (RUN_TIMEOUT_MINUTES).` });
       stopRun(chat.id);
@@ -547,6 +556,7 @@ async function finishRun(run: ActiveRun, code: number | null, signal: NodeJS.Sig
   if (runs.get(run.chatId) === run) runs.delete(run.chatId);
   publishStatus(run, false);
   notifyProjectChanged(run.projectId);
+  hooks.chatTurnEnded(run.chatId, run.userId, run.gotResult && !run.resultError && !run.stopped);
 }
 
 async function retry(run: ActiveRun): Promise<void> {
@@ -575,6 +585,128 @@ export function stopAllRuns(): void {
   for (const r of runs.values()) killTree(r.child, 'SIGTERM');
   stopAllAgentRuns();
 }
+
+// ---------------------------------------------------------------------------
+// Message queue: messages sent while the AI is still working wait in `chat_queue` and become
+// turns of their own, in order, once the chat is free — the running turn is never interrupted.
+// A turn that was stopped or failed pauses the queue (nothing runs on without the user); so does
+// a restart of the Studio. Queued messages can be edited or removed until they start.
+// ---------------------------------------------------------------------------
+const QUEUE_MAX = 20;
+/** chats whose queue runs on by itself when a turn ends (not paused) */
+const queueArmed = new Set<number>();
+
+interface QueuedRow {
+  id: number;
+  text: string;
+  created_at: Date;
+}
+
+export function chatBusy(chatId: number): boolean {
+  return runs.has(chatId) || agentRunActive(chatId) || starting.has(chatId);
+}
+
+export async function queueOf(chatId: number): Promise<{ id: number; text: string; createdAt: Date }[]> {
+  const rows = await q<QueuedRow>('SELECT id, text, created_at FROM chat_queue WHERE chat_id = ? ORDER BY id', [chatId]);
+  return rows.map((r) => ({ id: Number(r.id), text: r.text, createdAt: r.created_at }));
+}
+
+async function publishQueue(chatId: number): Promise<void> {
+  const queue = await queueOf(chatId);
+  if (!queue.length) queueArmed.delete(chatId);
+  publish(`chat:${chatId}`, { t: 'chat.queue', chatId, queue, paused: queue.length > 0 && !queueArmed.has(chatId) });
+}
+
+/** What the AI is doing in a chat right now (the side chat tells about it). */
+export function currentActivity(chatId: number): { running: boolean; since: number | null; doing: string } {
+  const run = runs.get(chatId);
+  if (run) return { running: true, since: run.startedAt, doing: run.activityText };
+  return { running: agentRunActive(chatId), since: null, doing: '' };
+}
+
+/**
+ * One turn: the user's message goes into the chat and the AI starts working on it. Shared by
+ * POST /messages and the queue. Throws (and starts nothing) when the AI cannot run now.
+ */
+async function startTurn(user: AuthUser, chat: ChatRow, project: ProjectRow, text: string): Promise<void> {
+  const claude = (chat.provider || CLAUDE_ID) === CLAUDE_ID;
+  if (claude && !cliReady()) throw new HttpError(503, cliNotReadyMessage());
+  if (!claude) await assertAgentAvailable(chat.provider);
+  if (chatBusy(chat.id)) throw new HttpError(409, 'The AI is still working in this chat');
+  const mine = [...runs.values()].filter((r) => r.userId === user.id).length + agentRunCount(user.id);
+  if (mine >= config.limits.runsPerUser) {
+    throw new HttpError(429, `You already have ${mine} AI run(s) working (limit ${config.limits.runsPerUser}). Wait or stop one.`, 'run_limit');
+  }
+  // a second click while this one is still being prepared must not start a second run
+  starting.add(chat.id);
+  try {
+    if (chat.title === 'New chat') {
+      const title = text.replace(/\s+/g, ' ').slice(0, 60);
+      await exec('UPDATE chats SET title = ? WHERE id = ?', [title, chat.id]);
+    }
+    // "/name …" calls one of the user's skills: the AI gets its instructions with the request
+    const called = await expandSkillCommand(user.id, text).catch(() => null);
+    await addEvent(chat.id, 'user', called ? { text, skill: called.skill.slug } : { text });
+    const prompt = called?.prompt ?? text;
+    if (claude) await spawnRun(user, chat, project, prompt);
+    else await startAgentRun(user, chat, project, prompt);
+  } finally {
+    starting.delete(chat.id);
+  }
+}
+
+/** Starts the chat's oldest queued message if the chat is free. False: nothing started. */
+async function drainChat(chatId: number): Promise<boolean> {
+  if (chatBusy(chatId)) return false;
+  const next = await q1<QueuedRow>('SELECT id, text, created_at FROM chat_queue WHERE chat_id = ? ORDER BY id LIMIT 1', [chatId]);
+  if (!next) {
+    queueArmed.delete(chatId);
+    return false;
+  }
+  const chat = await q1<ChatRow>('SELECT * FROM chats WHERE id = ?', [chatId]);
+  const project = chat ? await getProjectRow(chat.project_id) : null;
+  const owner = project ? await getUser(project.owner_id) : null;
+  if (!chat || !project || !owner || owner.status !== 'active') {
+    queueArmed.delete(chatId);
+    return false;
+  }
+  // taken off the queue first (only one caller wins), put back if the turn cannot start
+  const taken = await exec('DELETE FROM chat_queue WHERE id = ?', [next.id]);
+  if (taken.affectedRows !== 1) return false;
+  try {
+    await startTurn(owner, chat, project, next.text);
+  } catch (err) {
+    await exec('INSERT INTO chat_queue (id, chat_id, text, created_at) VALUES (?, ?, ?, ?)', [next.id, chatId, next.text, next.created_at]).catch(() => {});
+    const e = err as HttpError;
+    if (e.code === 'run_limit') return false; // another run of the user ends first; the queue waits for it
+    queueArmed.delete(chatId);
+    await addEvent(chatId, 'error', { message: `A queued message could not start: ${e.message}. The queue is paused.` });
+    await publishQueue(chatId);
+    return false;
+  }
+  await publishQueue(chatId);
+  return true;
+}
+
+/** A turn ended: the next queued messages of this user's chats start (one per free chat). */
+async function pumpQueues(userId: number): Promise<void> {
+  const chats = await q<{ chat_id: number }>(
+    `SELECT DISTINCT q.chat_id FROM chat_queue q JOIN chats c ON c.id = q.chat_id JOIN projects p ON p.id = c.project_id WHERE p.owner_id = ?`,
+    [userId],
+  );
+  for (const { chat_id } of chats) {
+    if (!queueArmed.has(chat_id)) continue;
+    await drainChat(chat_id).catch((err) => console.warn('[queue] start', (err as Error).message));
+  }
+}
+
+hooks.chatTurnEnded = (chatId: number, userId: number, ok: boolean) => {
+  void (async () => {
+    // stopped or failed: the rest waits for the user (no chain of failing turns)
+    if (!ok && queueArmed.delete(chatId)) await publishQueue(chatId);
+    await pumpQueues(userId);
+  })().catch((err) => console.warn('[queue]', (err as Error).message));
+};
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -623,6 +755,7 @@ chatRouter.patch('/chats/:chatId', async (req, res) => {
 
 chatRouter.delete('/chats/:chatId', async (req, res) => {
   const { chat } = await loadOwnedChat(req.user!, intParam(req.params.chatId));
+  queueArmed.delete(chat.id);
   stopRun(chat.id);
   closeChatAgent(chat.id);
   await exec('DELETE FROM chats WHERE id = ?', [chat.id]);
@@ -645,6 +778,8 @@ chatRouter.get('/chats/:chatId/events', async (req, res) => {
       createdAt: r.created_at,
     })),
     pending: pendingForChat(chat.id),
+    queue: await queueOf(chat.id),
+    queuePaused: !queueArmed.has(chat.id),
   });
 });
 
@@ -655,32 +790,65 @@ chatRouter.post('/chats/:chatId/messages', async (req, res) => {
   const claude = (chat.provider || CLAUDE_ID) === CLAUDE_ID;
   if (claude && !cliReady()) throw new HttpError(503, cliNotReadyMessage());
   if (!claude) await assertAgentAvailable(chat.provider);
-  if (runs.has(chat.id) || agentRunActive(chat.id) || starting.has(chat.id)) throw new HttpError(409, 'The AI is still working in this chat — wait or press Stop');
-  const mine = [...runs.values()].filter((r) => r.userId === user.id).length + agentRunCount(user.id);
-  if (mine >= config.limits.runsPerUser) {
-    throw new HttpError(429, `You already have ${mine} AI run(s) working (limit ${config.limits.runsPerUser}). Wait or stop one.`);
+  const waiting = (await queueOf(chat.id)).length;
+  // the AI is busy, or earlier messages still wait: this one queues behind them (order is kept)
+  if (chatBusy(chat.id) || waiting > 0) {
+    if (waiting >= QUEUE_MAX) throw new HttpError(429, `${QUEUE_MAX} messages are already waiting in this chat — remove some or wait`);
+    await exec('INSERT INTO chat_queue (chat_id, text) VALUES (?, ?)', [chat.id, body.text]);
+    queueArmed.add(chat.id);
+    await publishQueue(chat.id);
+    if (!chatBusy(chat.id)) await drainChat(chat.id);
+    res.json({ ok: true, queued: true, position: waiting + 1 });
+    return;
   }
-  // a second click while this one is still being prepared must not start a second run
-  starting.add(chat.id);
-  try {
-    if (chat.title === 'New chat') {
-      const title = body.text.replace(/\s+/g, ' ').slice(0, 60);
-      await exec('UPDATE chats SET title = ? WHERE id = ?', [title, chat.id]);
-    }
-    // "/name …" calls one of the user's skills: the AI gets its instructions with the request
-    const called = await expandSkillCommand(user.id, body.text).catch(() => null);
-    await addEvent(chat.id, 'user', called ? { text: body.text, skill: called.skill.slug } : { text: body.text });
-    const prompt = called?.prompt ?? body.text;
-    if (claude) await spawnRun(user, chat, project, prompt);
-    else await startAgentRun(user, chat, project, prompt);
-  } finally {
-    starting.delete(chat.id);
-  }
+  await startTurn(user, chat, project, body.text);
   res.json({ ok: true });
+});
+
+/** Edit a queued message (until it starts). */
+chatRouter.patch('/chats/:chatId/queue/:qid', async (req, res) => {
+  const { chat } = await loadOwnedChat(req.user!, intParam(req.params.chatId));
+  const body = parse(z.object({ text: z.string().trim().min(1).max(100_000) }), req.body);
+  const r = await exec('UPDATE chat_queue SET text = ? WHERE id = ? AND chat_id = ?', [body.text, intParam(req.params.qid, 'qid'), chat.id]);
+  if (r.affectedRows !== 1) throw notFound('That message has already started or was removed');
+  await publishQueue(chat.id);
+  res.json({ ok: true });
+});
+
+/** Remove one queued message. */
+chatRouter.delete('/chats/:chatId/queue/:qid', async (req, res) => {
+  const { chat } = await loadOwnedChat(req.user!, intParam(req.params.chatId));
+  await exec('DELETE FROM chat_queue WHERE id = ? AND chat_id = ?', [intParam(req.params.qid, 'qid'), chat.id]);
+  await publishQueue(chat.id);
+  res.json({ ok: true });
+});
+
+/** Remove every queued message of the chat. */
+chatRouter.delete('/chats/:chatId/queue', async (req, res) => {
+  const { chat } = await loadOwnedChat(req.user!, intParam(req.params.chatId));
+  await exec('DELETE FROM chat_queue WHERE chat_id = ?', [chat.id]);
+  queueArmed.delete(chat.id);
+  await publishQueue(chat.id);
+  res.json({ ok: true });
+});
+
+/** Continue a paused queue (after Stop, a failed turn or a restart). */
+chatRouter.post('/chats/:chatId/queue/resume', async (req, res) => {
+  const { chat } = await loadOwnedChat(req.user!, intParam(req.params.chatId));
+  if (!(await queueOf(chat.id)).length) {
+    res.json({ ok: true, started: false });
+    return;
+  }
+  queueArmed.add(chat.id);
+  const started = await drainChat(chat.id);
+  await publishQueue(chat.id);
+  res.json({ ok: true, started });
 });
 
 chatRouter.post('/chats/:chatId/stop', async (req, res) => {
   const { chat } = await loadOwnedChat(req.user!, intParam(req.params.chatId));
+  // Stop means stop: queued messages wait until the user continues them
+  if (queueArmed.delete(chat.id)) await publishQueue(chat.id);
   res.json({ stopped: stopRun(chat.id) });
 });
 

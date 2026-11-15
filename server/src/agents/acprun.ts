@@ -827,6 +827,7 @@ export async function startAgentRun(user: AuthUser, chat: ChatLike, project: Pro
       if (runs.get(run.chatId) === run) {
         const p = procs.get(run.chatId);
         if (p?.run === run) p.run = null;
+        run.failure = run.failure ?? 'The run failed half-way.';
         void finishRun(run).catch((err) => console.error('[agents] finish', err));
       }
     });
@@ -885,10 +886,13 @@ async function execute(run: AgentRun, chat: ChatLike, project: ProjectRow): Prom
     if (run.failure) {
       await addEvent(run.chatId, 'error', { message: run.failure, hint: agentErrorHint(run.agent, run.failure), provider: run.agent.id });
     } else if (run.stopped || e.stopped) {
+      run.stopped = true;
       await addEvent(run.chatId, 'error', { message: 'Stopped.', stopped: true });
     } else {
       const raw = e.message || String(err);
       const message = clip(readableError(raw), 4000);
+      // (remembered: a failed turn pauses the chat's message queue)
+      run.failure = message;
       await addEvent(run.chatId, 'error', { message, hint: agentErrorHint(run.agent, raw), provider: run.agent.id });
       if (proc && !proc.client.alive) killProc(proc);
     }
@@ -967,6 +971,7 @@ async function finishRun(run: AgentRun): Promise<void> {
   if (runs.get(run.chatId) === run) runs.delete(run.chatId);
   publishStatus(run, false);
   notifyProjectChanged(run.projectId);
+  hooks.chatTurnEnded(run.chatId, run.userId, !run.stopped && !run.failure);
 }
 
 export function stopAgentRun(chatId: number): boolean {

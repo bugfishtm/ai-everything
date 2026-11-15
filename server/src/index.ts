@@ -11,6 +11,7 @@ import { accountRouter, announceSetup, attachUser, authRouter, bootstrapAdmin, c
 import { claudeRouter } from './claude/creds.js';
 import { claudeCliRouter, initClaudeCli, scheduleClaudeUpdates } from './claudecli.js';
 import { canAccessChat, chatRouter, isProjectRunning, stopAllRuns, stopProjectRuns } from './claude/runner.js';
+import { sideRouter } from './claude/side.js';
 import { initTerminals, stopAllTerminals, stopProjectTerminals } from './claude/terminal.js';
 import { config, loadAppSecret } from './config.js';
 import { connectDb, dbAlive, exec, migrate, q, q1 } from './db.js';
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
   api.use(projectsRouter);
   api.use(releasesRouter);
   api.use(chatRouter);
+  api.use(sideRouter);
   api.use(libraryRouter);
   api.use(packsRouter);
   api.use(runToolRouter);

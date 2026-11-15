@@ -7,6 +7,7 @@ import { socket } from '../ws';
 import { TerminalView } from '../components/lazy';
 import { Modal, Spinner, useUi } from '../components/ui';
 import { AgentConnectionsCard } from '../components/AgentConnections';
+import { TwoFactorCard } from '../components/TwoFactorCard';
 import { useProviderName, useStudio } from '../store';
 import { MODEL_SUGGESTIONS, timeAgo } from '../util';
 
@@ -545,6 +546,7 @@ export function AccountPage() {
       <AgentConnectionsCard />
       <UsageCard />
       <ProfileCard />
+      <TwoFactorCard />
     </div>
   );
 }

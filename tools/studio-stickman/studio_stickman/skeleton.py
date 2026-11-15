@@ -49,10 +49,79 @@ def _up(a: float, f: int) -> tuple[float, float]:
     return (math.sin(r) * f, -math.cos(r))
 
 
+# How far the hinge joints can bend (degrees). An elbow cannot bend backwards past straight, a knee
+# cannot bend forwards, a neck turns the head about 70 degrees each way. fk clamps the state to these
+# after all fx ran, so a wobble added on top of a pose (wave, zap, talk …) never breaks a joint.
+LIMITS = {"RE": (-10.0, 160.0), "LE": (-10.0, 160.0), "RK": (-165.0, 5.0), "LK": (-165.0, 5.0), "H": (-70.0, 70.0)}
+
+# Body parts that can rest on the floor, and how far their drawn outline reaches below the joint
+# (px at scale 1): the sole under a foot, a kneecap, the buttocks, the back. The head adds its radius.
+CONTACTS = (("Rfoot", 5.0), ("Lfoot", 5.0), ("Rknee", 5.0), ("Lknee", 5.0), ("hip", 6.0), ("sho", 6.0), ("neck", 6.0))
+# Hands and elbows do not hold the body up (a hand put "through" the floor would otherwise lift the whole
+# figure off its feet); instead the arm folds up onto the floor, so they never sink either.
+SOFT = {"elb": 4.5, "hand": 5.0}
+
+
+def limit(st: dict) -> dict:
+    """Clamp the hinge joints of a state to LIMITS (in place; returns st)."""
+    for n, (lo, hi) in LIMITS.items():
+        v = st.get(n)
+        if v is not None and not lo <= v <= hi:
+            st[n] = lo if v < lo else hi
+    return st
+
+
+def ik_limb(fwd: float, down: float, l1: float, l2: float, bend: int) -> tuple[float, float]:
+    """Two-bone inverse kinematics in the pose convention (0 = straight down, + = towards the facing
+    side): the root angle (world) and the hinge angle that put the end `fwd` px in front of and `down`
+    px below the root. bend = +1: hinge bends forwards (an elbow), -1: backwards (a knee). Out of
+    reach: the limb points at the target, straight."""
+    dist = math.hypot(fwd, down)
+    dist = min(max(dist, abs(l1 - l2) + 1e-3, 1e-3), (l1 + l2) * 0.9995)
+    phi = math.atan2(fwd, down)
+    a = math.acos(max(-1.0, min(1.0, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))))
+    b = math.acos(max(-1.0, min(1.0, (l1 * l1 + l2 * l2 - dist * dist) / (2 * l1 * l2))))
+    if bend > 0:
+        return math.degrees(phi - a), math.degrees(math.pi - b)
+    return math.degrees(phi + a), -math.degrees(math.pi - b)
+
+
+def _fold(P: dict, root: str, mid: str, end: str, floor: float, r_mid: float, r_end: float, side: float) -> None:
+    """Swing a limb about its root, then its lower part about the middle joint, just far enough that
+    neither goes below the floor (an arm thrown over the head while lying ends up lying on the floor)."""
+    for a, b, rb, moved in ((root, mid, r_mid, (mid, end)), (mid, end, r_end, (end,))):
+        ax, ay = P[a]
+        bx, by = P[b]
+        lim = floor - rb
+        if by <= lim:
+            continue
+        ln = math.hypot(bx - ax, by - ay)
+        if ln < 1e-6:
+            continue
+        dy = min(lim - ay, ln)
+        if dy < -ln:
+            continue
+        sx = (1.0 if bx >= ax else -1.0) if abs(bx - ax) > 1e-6 else side
+        nx, ny = ax + sx * math.sqrt(max(0.0, ln * ln - dy * dy)), ay + dy
+        # rotate everything below the joint by the same angle
+        da = math.atan2(ny - ay, nx - ax) - math.atan2(by - ay, bx - ax)
+        c, s = math.cos(da), math.sin(da)
+        for n in moved:
+            px, py = P[n][0] - ax, P[n][1] - ay
+            P[n] = (ax + px * c - py * s, ay + px * s + py * c)
+
+
 def fk(st: dict, floor: float, scale: float = 1.0, build: dict | None = None) -> dict:
-    """Joint positions (world px) for a state: the ten angles + x, y, rot, face."""
+    """Joint positions (world px) for a state: the ten angles + x, y, rot, face.
+
+    The hinge joints are clamped to LIMITS (in st, so whatever draws from st sees the same angles).
+    Contact with the floor: the lowest of the CONTACTS (feet, knees, buttocks, back, head) rests on the
+    floor, `y` lifts the body above that; hands and elbows that would go through the floor fold up
+    onto it instead. A face between -1 and 1 (a turn in progress) squeezes the body sideways."""
     d = {k: v * scale for k, v in {**DIMS, **(build or {})}.items()}
-    f = 1 if st.get("face", 1) >= 0 else -1
+    limit(st)
+    face = st.get("face", 1)
+    f = 1 if face >= 0 else -1
     P: dict = {"hip": (0.0, 0.0)}
     u = _up(st["T"], f)
     P["sho"] = (u[0] * d["torso"] * 0.9, u[1] * d["torso"] * 0.9)
@@ -69,18 +138,34 @@ def fk(st: dict, floor: float, scale: float = 1.0, build: dict | None = None) ->
         P[s + "knee"] = (k[0] * d["thigh"], k[1] * d["thigh"])
         fo = _down(st[s + "H"] + st[s + "K"], f)
         P[s + "foot"] = (P[s + "knee"][0] + fo[0] * d["shin"], P[s + "knee"][1] + fo[1] * d["shin"])
+    # a turn in progress (face between -1 and 1): the body is seen more and more from the front
+    squeeze = abs(face)
+    if squeeze < 1.0:
+        squeeze = max(0.12, squeeze)
+        for n in P:
+            P[n] = (P[n][0] * squeeze, P[n][1])
     rot = math.radians(st.get("rot", 0) * f)
     if rot:
         c, s_ = math.cos(rot), math.sin(rot)
         for n in list(P):
             x, y = P[n]
             P[n] = (x * c - y * s_, x * s_ + y * c)
-    # the lowest point of the body rests on the floor (so any pose "stands" by itself)
-    low = max(P[n][1] for n in P if not n.endswith("hand") and n != "head")
-    low = max(low, P["head"][1] + d["head"] - 3 * scale)
-    y0 = floor - 5 * scale - low - st.get("y", 0)
+    # the lowest contact rests on the floor (so any pose "stands", "sits" or "lies" by itself)
+    low = P["head"][1] + d["head"] + 1.0 * scale
+    for n, r in CONTACTS:
+        v = P[n][1] + r * scale
+        if v > low:
+            low = v
+    lift = st.get("y", 0)
+    y0 = floor - low - lift
+    x0 = st["x"]
     for n in P:
-        P[n] = (P[n][0] + st["x"], P[n][1] + y0)
+        P[n] = (P[n][0] + x0, P[n][1] + y0)
+    if lift > -0.5:
+        # arms (and legs of a body resting on its back or knees) never go through the floor
+        for s in "RL":
+            if P[s + "hand"][1] > floor - SOFT["hand"] * scale or P[s + "elb"][1] > floor - SOFT["elb"] * scale:
+                _fold(P, "sho", s + "elb", s + "hand", floor, SOFT["elb"] * scale, SOFT["hand"] * scale, f)
     P["_head_r"] = d["head"]
     P["_head_ang"] = (st["T"] + st["H"]) * f + st.get("rot", 0) * f
     P["_face"] = f

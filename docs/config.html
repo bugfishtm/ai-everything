@@ -65,6 +65,7 @@ Several things can also be changed on the website by an administrator (registrat
 <div class="table-wrap"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>MYSQL_HOST</code></td><td>—</td><td>Set it to use an <strong>external</strong> MySQL or MariaDB server instead</td></tr><tr><td><code>MYSQL_PORT</code> · <code>MYSQL_DATABASE</code> · <code>MYSQL_USER</code> · <code>MYSQL_PASSWORD</code></td><td>3306 · studio · studio · —</td><td>Its connection</td></tr></tbody></table></div><div class="code"><div class="code-head"><span>Managing the built-in database</span><button class="copy" type="button">Copy</button></div><pre><code>docker compose exec studio studio-db status
 docker compose exec studio studio-db list            # the Studio's and the WordPress sites' databases
 docker compose exec studio studio-db shell           # an SQL prompt
+docker compose exec studio studio-db reset-2fa admin # two-step sign-in off for a locked-out account
 docker compose exec -T studio studio-db dump --all &gt; all.sql</code></pre></div>
 <h2 id="building-the-image">Building the image<a class="anchor" href="#building-the-image" aria-label="Link to this section">#</a></h2>
 
@@ -87,7 +88,7 @@ docker compose exec -T studio studio-db dump --all &gt; all.sql</code></pre></di
   <li><strong>Previews and project servers are sandboxed</strong> in the browser: they run in an opaque origin and never see the Studio's login cookie.</li>
   <li><strong>Websites are separate</strong>: served on their own ports and origins, from releases nobody can change afterwards. A domain belongs to one website and never to the Studio itself.</li>
   <li><strong>WordPress</strong>: a site's PHP runs as its owner, confined to the project folder, without shell functions; uploads never execute; each site's database account sees only its own database.</li>
-  <li><strong>Accounts</strong>: registration is closed by default, logins are rate-limited, and the first account from outside the private network needs a setup code from the server log.</li>
+  <li><strong>Accounts</strong>: registration is closed by default, logins are rate-limited, and the first account from outside the private network needs a setup code from the server log. Every account can switch on two-step sign-in (a TOTP code from an authenticator app, with single-use recovery codes); the secret is stored encrypted, a code works once, guesses are throttled, and after 10 wrong codes in a row only a recovery code or an admin reset gets in.</li>
   <li><strong>The container</strong> runs with <code>no-new-privileges</code>, a process limit and a bounded log.</li>
 </ul>
 <p>The Studio gives its users an AI that runs commands. Give accounts to people you would give a shell on that machine — and keep the image, WordPress sites and their plugins up to date.</p>

@@ -349,4 +349,38 @@ export const MIGRATIONS: { version: number; name: string; statements: string[] }
        ) ${T}`,
     ],
   },
+  {
+    version: 9,
+    name: 'optional two-step sign-in (TOTP) with recovery codes',
+    statements: [
+      // the authenticator app's shared secret (encrypted), since when it is on, the last 30-second
+      // step that was accepted (a code works only once), wrong codes in a row since the last good one
+      `ALTER TABLE users ADD COLUMN totp_secret_enc TEXT NULL, ADD COLUMN totp_enabled_at DATETIME(3) NULL, ADD COLUMN totp_last_step BIGINT UNSIGNED NULL,
+         ADD COLUMN totp_failed_count INT UNSIGNED NOT NULL DEFAULT 0, ADD COLUMN totp_failed_at DATETIME(3) NULL`,
+      // single-use codes for a lost phone, stored as keyed hashes
+      `CREATE TABLE user_recovery_codes (
+         user_id INT UNSIGNED NOT NULL,
+         code_hash CHAR(64) NOT NULL,
+         used_at DATETIME(3) NULL,
+         created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+         PRIMARY KEY (user_id, code_hash),
+         CONSTRAINT fk_recovery_codes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+       ) ${T}`,
+    ],
+  },
+  {
+    version: 10,
+    name: 'chat message queue',
+    statements: [
+      // messages sent while the AI is still working: each becomes a turn of its own, in order
+      `CREATE TABLE chat_queue (
+         id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+         chat_id INT UNSIGNED NOT NULL,
+         text MEDIUMTEXT NOT NULL,
+         created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+         KEY ix_chat_queue_chat (chat_id, id),
+         CONSTRAINT fk_chat_queue_chat FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+       ) ${T}`,
+    ],
+  },
 ];

@@ -5,15 +5,17 @@ meta.target = "studio-stickman"). It registers new things scenes can name:
 
     from studio_stickman.api import pose, action, motion, prop, backdrop, sound, particle, np
 
-    pose("victory", RS=170, RE=-25, LS=165, LE=-25, H=-12, doc="both arms up")
+    pose("victory", RS=170, RE=-10, LS=165, LE=-10, H=-12, doc="both arms up")
 
-    @action("backflip", params={"height": 150, "dur": 0.7}, doc="jump, turn once, land")
+    @action("backflip", params={"height": 150, "dur": 0.7, "dir": "back"}, doc="jump, turn once, land",
+            choices={"dir": ("back", "front")}, ranges={"height": (20, 600)})
     def backflip(a):                                   # a: the action's context
         d = a.p["dur"]
         a.key(0, "crouch", ease="out")                 # keyframes relative to the action's start
         a.key(0.12, "jump", ease="out")
-        a.key(0.12 + d / 2, "jump", y=a.p["height"], rot=-180, ease="lin")
-        a.key(0.12 + d, "land", rot=-360, ease="in")
+        turn = -360 if a.p["dir"] == "back" else 360   # choices: a scene gets an error for any other word
+        a.key(0.12 + d / 2, "jump", y=a.p["height"], rot=turn / 2, ease="lin")
+        a.key(0.12 + d, "land", rot=turn, ease="in")
         a.key(0.3 + d, "stand", rot=0)
         a.event(0.12 + d, sfx="thud", gain=0.6)        # sounds, hit words, shakes …
 
@@ -21,8 +23,8 @@ meta.target = "studio-stickman"). It registers new things scenes can name:
     def tremble(st, t, p, ctx):
         st["H"] += math.sin(t * 40) * p["amp"]
 
-    @prop("sword", params={"length": 90, "color": "#cfd6e4"})
-    def sword(c, p, t):                                # local coords: (0, 0) = the hand, +x = forward
+    @prop("saber", params={"length": 90, "color": "#cfd6e4"})
+    def saber(c, p, t):                                # local coords: (0, 0) = the hand, +x = forward
         c.line((0, 0), (p["length"], 0), 5, p["color"])
         c.line((8, -9), (8, 9), 4, "#8a6a3a")
 
@@ -40,6 +42,14 @@ meta.target = "studio-stickman"). It registers new things scenes can name:
         c.circle((x, y), p["size"] * (1 - u), fill="#ff5a8a")
 
 Angles of a pose: T H RS RE LS LE RH RK LH LK (see `studio-stickman docs`), optional rot and y.
+Hinge joints are clamped while drawing (LIMITS: elbows -10..160, knees -165..5, head -70..70; a pose
+with an angle outside them gets a warning in `check`), and the
+body always rests on the floor by its lowest part (feet, knees, buttocks, back or head) — a lying or
+sitting pose needs no y. Action parameters are checked against the type of their default; `choices`
+names the words a parameter takes (case does not matter; forward/backward mean front/back) and
+`ranges` the (lowest, highest) number — anything else is an error with the line of the scene.
+Helpers for actions: ik_limb(fwd, down, l1, l2, bend) solves an arm (bend=1)
+or a leg (bend=-1) so its end reaches a point; fk(state, floor, scale, build) gives joint positions.
 Canvas methods (c): line, polyline, circle, ellipse, rect, poly, text, arc, at(origin, angle, flip, scale).
 """
 from __future__ import annotations
@@ -50,11 +60,12 @@ from typing import Callable
 import numpy as np  # noqa: F401  (re-exported for plugins)
 
 from .registry import register
-from .skeleton import ANGLES, STAND, color, ease, hash01, lerp, mix, shade  # noqa: F401
+from .skeleton import ANGLES, DIMS, LIMITS, STAND, color, ease, fk, hash01, ik_limb, lerp, limit, mix, shade  # noqa: F401
 
 
 def pose(name: str, doc: str = "", base: str | None = None, **angles) -> None:
-    """Register a pose. Angles that are not given come from `base` (default: "stand")."""
+    """Register a pose. Angles that are not given come from `base` (default: "stand"). An angle outside
+    LIMITS is clamped when drawn; `check` and `list` warn about it (registry)."""
     from .registry import POSES
 
     start = dict(POSES[base].data) if base and base in POSES else dict(STAND)
@@ -65,17 +76,27 @@ def pose(name: str, doc: str = "", base: str | None = None, **angles) -> None:
     register("pose", name, None, None, doc, start)
 
 
-def _deco(kind: str, name: str, params: dict | None, doc: str) -> Callable:
+def _deco(kind: str, name: str, params: dict | None, doc: str, choices: dict | None = None, ranges: dict | None = None) -> Callable:
     def deco(fn: Callable) -> Callable:
+        from .registry import TABLES
+
         register(kind, name, fn, params, doc)
+        entry = TABLES[kind][str(name)]
+        # read by the scene when it checks a parameter (scene._check_params)
+        if choices:
+            entry.choices = {str(k): tuple(str(c).lower() for c in v) for k, v in choices.items()}
+        if ranges:
+            entry.ranges = {str(k): (lo, hi) for k, (lo, hi) in ranges.items()}
         return fn
 
     return deco
 
 
-def action(name: str, params: dict | None = None, doc: str = "") -> Callable:
-    """fn(a): add keyframes with a.key(dt, pose, **kw) and events with a.event(dt, **kw)."""
-    return _deco("action", name, params, doc)
+def action(name: str, params: dict | None = None, doc: str = "", choices: dict | None = None, ranges: dict | None = None) -> Callable:
+    """fn(a): add keyframes with a.key(dt, pose, **kw) and events with a.event(dt, **kw).
+    choices={"dir": ("front", "back")}: the words a parameter takes; ranges={"power": (0, 5)}: the
+    lowest / highest number (None: no limit). A scene with anything else gets an error at its line."""
+    return _deco("action", name, params, doc, choices, ranges)
 
 
 def motion(name: str, params: dict | None = None, doc: str = "") -> Callable:

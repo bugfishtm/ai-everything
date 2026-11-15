@@ -10,6 +10,22 @@ export interface User {
   status: 'active' | 'disabled';
   createdAt: string;
   lastLoginAt: string | null;
+  /** two-step sign-in (authenticator app) is on */
+  twoFactor?: boolean;
+}
+
+/** POST /auth/login: a session — or, with two-step sign-in on, a ticket for the code step */
+export type LoginResult = { user: User; twoFactor?: undefined } | { twoFactor: true; ticket: string; user?: undefined };
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  enabledAt: string | null;
+  recoveryCodesLeft: number;
+  /** wrong codes in a row since the last good one */
+  failedAttempts: number;
+  lastFailedAt: string | null;
+  /** too many wrong codes: only a recovery code (or an admin reset) gets in */
+  locked: boolean;
 }
 
 export interface Meta {
@@ -190,6 +206,13 @@ export interface Chat {
   createdAt: string;
   updatedAt: string;
   running: boolean;
+}
+
+/** a message sent while the AI was working: it starts as a turn of its own when the chat is free */
+export interface QueuedMessage {
+  id: number;
+  text: string;
+  createdAt: string;
 }
 
 export type EventKind = 'user' | 'assistant' | 'tool_result' | 'result' | 'system' | 'error' | 'checkpoint';
@@ -591,6 +614,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** the server's machine-readable reason, when it gives one (e.g. "locked", "ticket_expired") */
+    public code?: string,
   ) {
     super(message);
   }
@@ -614,7 +639,7 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
   }
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event('studio:unauthorized'));
-    throw new ApiError(res.status, data.error || res.statusText || `HTTP ${res.status}`);
+    throw new ApiError(res.status, data.error || res.statusText || `HTTP ${res.status}`, typeof data.code === 'string' ? data.code : undefined);
   }
   return data as T;
 }

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -71,6 +72,14 @@ def kick(sr, p, rng):
     body = _sweep(120 * p["pitch"], 40 * p["pitch"], n, sr, 0.45) * _decay(n, sr, 0.24)
     slap = _filt(rng.uniform(-1, 1, n), "band", (500, 2600), sr) * _decay(n, sr, 0.06) * 1.2
     return np.tanh((body * 1.1 + slap) * 1.8) * 0.8
+
+
+@sound("block", params={"pitch": 1.0}, doc="a blow stopped by a guard: a short dull knock, no slap")
+def block(sr, p, rng):
+    n = _n(0.12, sr)
+    body = _sweep(260 * p["pitch"], 140 * p["pitch"], n, sr, 0.5) * _decay(n, sr, 0.06)
+    tap = _filt(rng.uniform(-1, 1, n), "band", (500, 1800), sr) * _decay(n, sr, 0.02) * 0.8
+    return np.tanh((body + tap) * 1.6) * 0.6
 
 
 @sound("thud", params={"pitch": 1.0}, doc="a body or a heavy thing hits the floor")
@@ -243,6 +252,160 @@ class AudioError(Exception):
 
 
 _cache: dict[str, np.ndarray] = {}
+AUDIO_EXT = (".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus")
+
+# How loud each built-in sound is at gain 1 (dBFS of its loudest 50 ms). Synthesized sounds came out
+# between -31.5 (step) and -5.7 dB (explosion), so a footstep at gain 1 was inaudible next to an alarm;
+# now each is scaled to its level here: hits loudest, small sounds a little lower.
+LEVELS = {"punch": -10.0, "kick": -9.0, "thud": -9.5, "crash": -9.0, "explosion": -7.5, "jab": -13.0, "glass": -12.0, "block": -13.0, "land": -14.0,
+          "knock": -14.0, "zap": -14.0, "boing": -14.0, "whoosh": -15.0, "ding": -15.0, "coin": -15.0, "powerup": -15.0, "slide": -16.0,
+          "pop": -16.0, "jump": -16.0, "alarm": -16.0, "swish": -17.0, "step": -18.0}
+
+
+def resolve_audio_path(scene, value) -> Path:
+    """Where an audio file named in a scene is: an absolute path, else the project folder first, then the
+    folder of the scene file. When it is in neither, the project path (for the error message)."""
+    p = Path(str(value))
+    if p.is_absolute():
+        return p
+    project = (registry.project_dir() / p).resolve()
+    if project.exists():
+        return project
+    spath = getattr(scene, "path", None)
+    if spath:
+        local = (Path(spath).resolve().parent / p).resolve()
+        if local.exists():
+            return local
+    return project
+
+
+def _looked(scene, value) -> str:
+    def short(p: Path) -> str:
+        try:
+            rel = os.path.relpath(p, Path.cwd())
+            return "./" if rel == "." else rel if not rel.startswith("..") else str(p)
+        except ValueError:                      # another drive (Windows)
+            return str(p)
+
+    places = [registry.project_dir().resolve()]
+    spath = getattr(scene, "path", None)
+    if spath and Path(spath).resolve().parent not in places:
+        places.append(Path(spath).resolve().parent)
+    return f"looked in {' and '.join(short(p) for p in places)}"
+
+
+def _check_params(name: str, params: dict) -> None:
+    """Values that would crash the synthesizer (pitch 0 divided by zero and silenced the whole video)."""
+    if "pitch" in params:
+        try:
+            p = float(params["pitch"])
+        except (TypeError, ValueError):
+            raise AudioError(f'sound "{name}": pitch must be a number, got {params["pitch"]!r}') from None
+        if not 0.05 <= p <= 8:
+            raise AudioError(f'sound "{name}": pitch must be between 0.05 and 8 (1 = normal), got {p:g}')
+    if "dur" in params:
+        try:
+            d = float(params["dur"])
+        except (TypeError, ValueError):
+            raise AudioError(f'sound "{name}": dur must be seconds, got {params["dur"]!r}') from None
+        if not 0 < d <= 10:
+            raise AudioError(f'sound "{name}": dur must be more than 0 and at most 10 seconds, got {d:g}')
+
+
+def _sound_refs(scene):
+    """Every sound a scene asks for: (where, name, params)."""
+    for ev in scene.events:
+        where = ev.get("_where", "events")
+        if ev["kind"] == "sfx":
+            yield where, ev["value"], {k: v for k, v in ev.items() if k not in ("kind", "t", "value", "gain", "pan", "_where")}
+        elif ev["kind"] in ("hit", "say") and ev.get("sfx"):
+            yield where, ev["sfx"], {}
+
+
+def validate_audio(scene) -> list[str]:
+    """Fast warnings ("<where>: <message>") for the scene's sound: missing or unreadable audio files, a song
+    that is not there, unknown sounds and bad sound parameters — what `render` would otherwise drop."""
+    out: list[str] = []
+    if scene.audio:
+        p = resolve_audio_path(scene, scene.audio)
+        name = str(scene.audio)
+        if name.endswith((".song.yaml", ".song.yml")):
+            if not p.is_file():
+                out.append(f"scene.audio: song not found: {name} ({_looked(scene, name)})")
+            else:
+                try:
+                    import yaml
+
+                    data = yaml.safe_load(p.read_text("utf-8")) or {}
+                    if not isinstance(data, dict) or not isinstance(data.get("song"), dict):
+                        out.append(f"scene.audio: {name} is not a studio-daw song (no song: section)")
+                except Exception as e:  # noqa: BLE001
+                    out.append(f"scene.audio: cannot read the song {name}: {type(e).__name__}: {e}")
+        elif not p.is_file():
+            out.append(f"scene.audio: file not found: {name} ({_looked(scene, name)})")
+        else:
+            err = _probe(p)
+            if err:
+                out.append(f"scene.audio: cannot read {name}: {err}")
+    seen: set = set()
+    for where, name, params in _sound_refs(scene):
+        n = str(name)
+        try:
+            if n in registry.SOUNDS:
+                e = registry.SOUNDS[n]
+                _check_params(n, {**e.params, **{k: v for k, v in params.items() if k in e.params}})
+            elif n.lower().endswith(AUDIO_EXT):
+                if n in seen:
+                    continue
+                seen.add(n)
+                p = resolve_audio_path(scene, n)
+                if not p.is_file():
+                    out.append(f"{where}: sound file not found: {n} ({_looked(scene, n)})")
+                else:
+                    err = _probe(p)
+                    if err:
+                        out.append(f"{where}: cannot read the sound file {n}: {err}")
+            elif "/" in n:
+                if n in seen:
+                    continue
+                seen.add(n)
+                try:
+                    _pack_path(n)
+                except AudioError as ex:
+                    out.append(f"{where}: {ex}")
+            else:
+                out.append(f'{where}: unknown sound "{n}"{registry.suggest(n, registry.SOUNDS)} (studio-stickman list sounds)')
+        except AudioError as ex:
+            out.append(f"{where}: {ex}")
+    return out
+
+
+def _probe(path: Path) -> str | None:
+    """None when ffmpeg can decode the start of the file, else the reason."""
+    if not shutil.which("ffmpeg"):
+        return None
+    try:
+        r = subprocess.run(["ffmpeg", "-v", "error", "-t", "0.2", "-i", str(path), "-f", "null", "-"], capture_output=True, timeout=20)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return str(e)
+    if r.returncode != 0:
+        return r.stderr.decode("utf-8", "replace").strip().splitlines()[-1][:200] if r.stderr else "ffmpeg cannot decode it"
+    return None
+
+
+def _pack_path(n: str) -> Path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "studio" / "python"))
+    try:
+        from studio_packs import PackError, resolve
+    except ImportError:
+        raise AudioError(f"{n}: packs are not available here") from None
+    try:
+        _, _, path = resolve(n)
+    except PackError as ex:
+        raise AudioError(str(ex)) from None
+    if path is None:
+        raise AudioError(f"{n}: this pack item has no file")
+    return Path(path)
 
 
 def decode(path: Path) -> np.ndarray:
@@ -262,30 +425,48 @@ def decode(path: Path) -> np.ndarray:
     return x
 
 
-def resolve_sound(name: str, params: dict, seed: int) -> np.ndarray:
-    """A registered sound, an audio file of the project, or a pack item (pack-id/item-id)."""
+def _level_db(x: np.ndarray) -> float:
+    """Loudness of a short sound: the RMS of its loudest 50 ms, in dBFS."""
+    m = x.mean(axis=1) if x.ndim == 2 else x
+    w = int(0.05 * SR)
+    if len(m) <= w:
+        return 10 * math.log10(float(np.mean(m * m)) + 1e-12)
+    c = np.concatenate([[0.0], np.cumsum(m * m)])
+    return 10 * math.log10(float((c[w:] - c[:-w]).max() / w) + 1e-12)
+
+
+def resolve_sound(name: str, params: dict, seed: int, scene=None, vary: bool = False) -> np.ndarray:
+    """A registered sound, an audio file (project folder, then the scene's folder), or a pack item
+    (pack-id/item-id). Built-in sounds come at their level in LEVELS; vary: this instance a little
+    higher or lower in pitch (±4 %) and level (±1.5 dB) than the last one, so ten punches are not ten copies."""
     n = str(name)
     e = registry.SOUNDS.get(n)
     if e:
         merged = {**e.params, **{k: v for k, v in params.items() if k in e.params}}
-        key = f"synth:{n}:{sorted(merged.items())}:{seed}"
+        _check_params(n, merged)
+        key = f"synth:{n}:{sorted(merged.items())}:{seed}:{vary}"
         if key not in _cache:
             x = np.asarray(e.fn(SR, merged, np.random.default_rng(seed)), dtype=np.float64)
-            _cache[key] = x if x.ndim == 2 else np.stack([x, x], axis=1)
+            x = x if x.ndim == 2 else np.stack([x, x], axis=1)
+            if not np.all(np.isfinite(x)):
+                raise AudioError(f'sound "{n}" made invalid samples (NaN or infinite)')
+            if e.source == "built-in" and n in LEVELS and len(x):
+                x = x * 10 ** ((LEVELS[n] - _level_db(x)) / 20)
+            if vary and len(x) > 8:
+                rng = np.random.default_rng(seed * 7 + 3)
+                k = 1 + rng.uniform(-0.04, 0.04)
+                src = np.arange(0, len(x) - 1, k)
+                x = np.stack([np.interp(src, np.arange(len(x)), x[:, ch]) for ch in (0, 1)], axis=1)
+                x *= 10 ** (rng.uniform(-1.5, 1.5) / 20)
+            _cache[key] = x
         return _cache[key]
-    if n.lower().endswith((".wav", ".mp3", ".ogg", ".flac", ".m4a")):
-        return decode((registry.project_dir() / n).resolve())
-    if "/" in n:
-        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "studio" / "python"))
-        from studio_packs import PackError, resolve
-
-        try:
-            _, _, path = resolve(n)
-        except PackError as ex:
-            raise AudioError(str(ex)) from None
-        if path is None:
-            raise AudioError(f"{n}: this pack item has no file")
+    if n.lower().endswith(AUDIO_EXT):
+        path = resolve_audio_path(scene, n) if scene is not None else (registry.project_dir() / n).resolve()
+        if not path.is_file():
+            raise AudioError(f"sound file not found: {n}" + (f" ({_looked(scene, n)})" if scene is not None else ""))
         return decode(path)
+    if "/" in n:
+        return decode(_pack_path(n))
     raise AudioError(f'unknown sound "{n}"')
 
 
@@ -330,58 +511,200 @@ def music_file(src: Path) -> Path:
     return Path(made)
 
 
+GAIT_STEPS = {"walk": 0.3, "run": 0.42, "sneak": 0.12}     # footstep gain per gait
+
+
+def _footsteps(scene, t0: float, t1: float) -> list[tuple[float, float, float, int]]:
+    """Automatic footsteps (t, gain, pan, seed) of walking, running and sneaking figures: the moments a
+    foot comes down on the floor, found from the figures' own movement."""
+    out = []
+    rate = 100.0
+    for fi, f in enumerate(scene.figures.values()):
+        keys = list(getattr(f, "keys", []) or [])
+        spans = []
+        for j, a in enumerate(keys):
+            b = keys[j + 1] if j + 1 < len(keys) else None
+            names = [nm for nm, _ in (a.fx or [])] + ([nm for nm, _ in (b.fx or [])] if b else [])
+            if any(nm in GAIT_STEPS for nm in names):
+                spans.append((a.t, b.t if b else scene.duration))
+        for s0, s1 in spans:
+            s0, s1 = max(s0, t0 - 0.5), min(s1, t1)
+            if s1 <= s0:
+                continue
+            lifted = {"R": False, "L": False}
+            # on a grid of absolute times: a partial render finds the same steps as the full one
+            for t in np.arange(math.ceil(s0 * rate), math.ceil(s1 * rate)) / rate:
+                st, P = f.joints(float(t))
+                gait = next((nm for nm in (st.get("fx") or []) if nm in GAIT_STEPS), None)
+                if not gait or not st.get("visible", True) or abs(st.get("rot", 0)) > 1:
+                    lifted = {"R": False, "L": False}
+                    continue
+                ground = scene.floor - 5 * f.scale - float(st.get("y", 0.0) or 0.0)
+                for side in "RL":
+                    h = ground - P[side + "foot"][1]
+                    if h > 4.0 * f.scale:
+                        lifted[side] = True
+                    elif lifted[side] and h < 1.2 * f.scale:
+                        lifted[side] = False
+                        pan = (P[side + "foot"][0] / scene.world_w - 0.5) * 0.9
+                        out.append((float(t), GAIT_STEPS[gait] * math.sqrt(f.scale), pan, fi * 100003 + int(t * 1000)))
+    return out
+
+
+def _blocks_max(x: np.ndarray, blk: int) -> np.ndarray:
+    a = np.abs(x).max(axis=1) if x.ndim == 2 else np.abs(x)
+    nb = (len(a) + blk - 1) // blk
+    pad = np.zeros(nb * blk)
+    pad[: len(a)] = a
+    return pad.reshape(nb, blk).max(axis=1)
+
+
+def _limit(buf: np.ndarray, ceiling: float = 0.97) -> tuple[np.ndarray, float, int]:
+    """A look-ahead peak limiter: the gain goes down only around samples that would go over the ceiling
+    (starting 5 ms before them, back up over about 80 ms); everything else stays exactly as mixed.
+    The old limiter bent every sample of the mix through tanh as soon as one peak was too loud, and its
+    result depended on the render range. Returns (sound, largest reduction in dB, where in samples)."""
+    blk = 32
+    need = np.minimum(1.0, ceiling / np.maximum(_blocks_max(buf, blk), 1e-9))
+    if need.min() >= 1.0:
+        return buf, 0.0, 0
+    from scipy.ndimage import minimum_filter1d, uniform_filter1d
+
+    hold = max(1, int(round(0.005 * SR / blk)))
+    g = minimum_filter1d(need, size=2 * hold + 1, mode="nearest")
+    # a short average after the hold: smooth, and still never above what any sample in reach needs
+    g = np.minimum(g, uniform_filter1d(g, size=max(1, hold), mode="nearest"))
+    g[g > 1.0 - 1e-9] = 1.0                            # an average of ones is not always exactly one
+    rel = blk / (0.08 * SR)
+    out = g.copy()
+    idx = np.flatnonzero(g < 1.0)
+    i, nb = int(idx[0]), len(g)
+    cur = 1.0
+    while i < nb:
+        cur = min(g[i], cur + (1.0 - cur) * rel)
+        out[i] = cur
+        if cur > 0.99995 and g[i] >= 1.0:          # recovered: jump to the next block that needs less gain
+            nxt = idx[np.searchsorted(idx, i)] if np.searchsorted(idx, i) < len(idx) else nb
+            out[i:nxt] = 1.0
+            i, cur = int(nxt), 1.0
+            continue
+        i += 1
+    centres = np.arange(nb) * blk + (blk - 1) / 2
+    gain = np.interp(np.arange(len(buf)), centres, out)
+    worst = int(np.argmin(out))
+    return buf * gain[:, None], round(-20 * math.log10(max(float(out[worst]), 1e-9)), 1), worst * blk
+
+
+def _duck(music: np.ndarray, fx: np.ndarray, depth_db: float = 4.0) -> np.ndarray:
+    """The music steps back (up to 4 dB) while sound effects play, so hits are heard over it:
+    an envelope of the effects with 50 ms attack and 300 ms release."""
+    blk = 441                                          # 10 ms
+    env = _blocks_max(fx, blk)
+    if env.max() < 0.02:
+        return music
+    target = np.clip(env / 0.25, 0.0, 1.0) * depth_db
+    att, rel = 1 - math.exp(-1 / 5.0), 1 - math.exp(-1 / 30.0)
+    db = np.empty(len(target))
+    cur = 0.0
+    for i, v in enumerate(target.tolist()):           # 100 steps a second: cheap even for long scenes
+        cur += (v - cur) * (att if v > cur else rel)
+        db[i] = cur
+    centres = np.arange(len(db)) * blk + (blk - 1) / 2
+    gain = 10 ** (-np.interp(np.arange(len(music)), centres, db) / 20)
+    return music * gain[:, None]
+
+
 def build_audio(scene, t0: float, t1: float) -> tuple[np.ndarray | None, dict]:
-    """The mixed sound of the scene between t0 and t1 (None when there is nothing to hear)."""
-    info = {"sfx": 0, "music": None, "peak_db": None}
+    """The mixed sound of the scene between t0 and t1 (None when there is nothing to hear).
+    A sound that cannot be made is left out with a warning in info["warnings"] — the rest still plays."""
+    info = {"sfx": 0, "music": None, "peak_db": None, "limited_db": 0.0, "footsteps": 0, "warnings": []}
     n = int((t1 - t0) * SR) + 1
-    buf = np.zeros((n, 2))
-    sfx_gain = 10 ** (scene.sfx_gain / 20)
-    used = False
+    fx = np.zeros((n, 2))
+    sfx_gain = 10 ** (float(scene.sfx_gain) / 20)
+
+    def place(x: np.ndarray, t: float, gain: float, pan: float) -> bool:
+        rel = t - t0
+        if rel < 0:
+            cut = int(-rel * SR)
+            if cut >= len(x):
+                return False
+            x, rel = x[cut:], 0.0
+        if not math.isfinite(gain) or not math.isfinite(pan):
+            raise AudioError(f"gain and pan must be numbers (got {gain}, {pan})")
+        _place(fx, x, rel, gain * sfx_gain, pan)
+        return True
+
     for i, ev in enumerate(scene.events):
+        where = ev.get("_where", f"events[{i}]")
         if ev["kind"] == "sfx":
             name, params = ev["value"], {k: v for k, v in ev.items() if k not in ("kind", "t", "value", "gain", "pan", "_where")}
         elif ev["kind"] == "hit" and ev.get("sfx"):
             name, params = ev["sfx"], {}
         elif ev["kind"] == "say" and ev.get("sfx"):
-            # a quiet blip when a speech bubble opens, from the side the speaker stands on
             name, params = ev["sfx"], {}
-            who = scene.figures.get(str(ev.get("who")))
-            ev = {**ev, "gain": 0.32, "pan": ((who.state(ev["t"])["x"] / scene.world_w - 0.5) * 0.9) if who else 0.0}
         else:
             continue
         if ev["t"] < t0 - 3 or ev["t"] > t1:
             continue
-        x = resolve_sound(name, params, scene.seed * 1000 + i)
-        pan = ev.get("pan")
-        if pan is None:
-            pan = 0.0
-            if ev["kind"] == "hit":
-                pan = (scene.hit_point(ev)[0] / scene.world_w - 0.5) * 0.9
-        rel = ev["t"] - t0
-        if rel < 0:
-            cut = int(-rel * SR)
-            if cut >= len(x):
-                continue
-            x, rel = x[cut:], 0.0
-        _place(buf, x, rel, float(ev.get("gain", 1.0)) * sfx_gain, float(pan))
-        info["sfx"] += 1
-        used = True
+        try:
+            if ev["kind"] == "say":
+                # a quiet blip when a speech bubble opens, from the side the speaker stands on
+                who = scene.figures.get(str(ev.get("who")))
+                gain, pan = 0.32, ((who.state(ev["t"])["x"] / scene.world_w - 0.5) * 0.9) if who else 0.0
+            else:
+                gain, pan = float(ev.get("gain", 1.0)), ev.get("pan")
+                if pan is None:
+                    pan = (scene.hit_point(ev)[0] / scene.world_w - 0.5) * 0.9 if ev["kind"] == "hit" else 0.0
+            x = resolve_sound(name, params, scene.seed * 1000 + i, scene, vary=ev["kind"] != "sfx" or str(name) in registry.SOUNDS)
+            if place(x, ev["t"], gain, float(pan)):
+                info["sfx"] += 1
+            # a strike that lands is heard swinging through the air first
+            if ev["kind"] == "hit" and str(where).startswith("timeline.") and str(name) not in ("whoosh", "swish"):
+                w = resolve_sound("whoosh", {"dur": 0.18, "pitch": 1.15}, scene.seed * 1000 + i + 500, vary=True)
+                place(w, ev["t"] - 0.17, 0.4 * min(1.2, gain), float(pan))
+        except Exception as e:  # noqa: BLE001  (one bad sound must not silence the video)
+            info["warnings"].append(f"{where}: sound '{name}' left out: {e if isinstance(e, AudioError) else f'{type(e).__name__}: {e}'}")
+    if getattr(scene, "footsteps", True) is not False:
+        try:
+            for t, gain, pan, seed in _footsteps(scene, t0, t1):
+                if place(resolve_sound("step", {}, seed, vary=True), t, gain, pan):
+                    info["footsteps"] += 1
+        except Exception as e:  # noqa: BLE001
+            info["warnings"].append(f"footsteps left out: {type(e).__name__}: {e}")
+    used = info["sfx"] > 0 or info["footsteps"] > 0
+    buf = fx
     if scene.audio:
-        music = decode(music_file((registry.project_dir() / str(scene.audio)).resolve()))
-        start = int((t0 - scene.audio_offset) * SR)
-        seg = music[max(0, start) : max(0, start) + n]
-        lead = max(0, -start)
-        if len(seg) and lead < n:
-            m = min(len(seg), n - lead)
-            buf[lead : lead + m] += seg[:m] * 10 ** (scene.audio_gain / 20)
-            used = True
-        info["music"] = {"file": str(scene.audio), "seconds": round(len(music) / SR, 2)}
+        try:
+            src = resolve_audio_path(scene, scene.audio)
+            if not src.is_file():
+                song = str(scene.audio).endswith((".song.yaml", ".song.yml"))
+                raise AudioError(f"{'song' if song else 'file'} not found: {scene.audio}")
+            music = decode(music_file(src))
+            info["music"] = {"file": str(scene.audio), "seconds": round(len(music) / SR, 2)}
+            start = int(round((t0 - scene.audio_offset) * SR))
+            seg = music[max(0, start) : max(0, start) + n]
+            lead = max(0, -start)
+            if len(seg) and lead < n:
+                m = min(len(seg), n - lead)
+                track = np.zeros((n, 2))
+                track[lead : lead + m] = seg[:m] * 10 ** (float(scene.audio_gain) / 20)
+                buf = fx + (_duck(track, fx) if used else track)
+                used = True
+        except Exception as e:  # noqa: BLE001
+            where = "scene.audio"
+            msg = str(e) if isinstance(e, AudioError) else f"{type(e).__name__}: {e}"
+            if isinstance(e, AudioError) and "not found" in msg:
+                msg += f" ({_looked(scene, scene.audio)})"
+            info["warnings"].append(f"{where}: no music: {msg}")
     if not used:
         return None, info
+    buf, reduced, at = _limit(buf)
     peak = float(np.max(np.abs(buf))) if len(buf) else 0.0
-    if peak > 0.98:
-        buf = np.tanh(buf / peak * 1.25) / math.tanh(1.25) * 0.97   # gentle limiting instead of clipping
     info["peak_db"] = round(20 * math.log10(max(peak, 1e-9)), 1)
+    info["limited_db"] = reduced
+    if reduced > 3.0:
+        info["warnings"].append(f"the sound is too loud: the limiter turned it down by {reduced:.1f} dB at {t0 + at / SR:.2f}s "
+                                "(lower scene.sfx_gain, scene.audio_gain or the gain of the loudest sounds)")
     return buf, info
 
 

@@ -22,7 +22,8 @@
 Make what is missing with the Studio tools: music with `studio-daw`, sound effects with
 `studio-daw sfx jump,coin,hit --out assets/sfx` (`studio-daw sfx list`), 3D models
 with `studio-3d`, animated characters with `studio-stickman` (`studio-stickman sprite <scene>
---figure NAME --from T --to T --frames 8` → a transparent sprite sheet + atlas JSON in `exports/`),
+--figure NAME --from T --to T --frames 8` → a transparent sprite sheet + atlas JSON in `exports/`;
+check the moves first with `studio-stickman sheet <scene> --focus NAME`),
 sprites, pixel art, tiling textures, UI art and icons with `studio-image` (`studio-image new
 src/x.image.yaml --template pixel|texture|icon`), a trailer with `studio-video`.
 

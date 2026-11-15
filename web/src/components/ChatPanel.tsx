@@ -4,6 +4,8 @@ import {
   GitCommitHorizontal,
   GraduationCap,
   KeyRound,
+  ListPlus,
+  MessageCircleQuestionMark,
   MessageSquarePlus,
   Paperclip,
   Pencil,
@@ -14,9 +16,10 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { api, errMsg, upload, type Area, type Chat, type ChatEvent, type PermRequest, type PlanLimits, type Project, type Skill } from '../api';
+import { api, errMsg, upload, type Area, type Chat, type ChatEvent, type PermRequest, type PlanLimits, type Project, type QueuedMessage, type Skill } from '../api';
 import { useProviderName, useStudio } from '../store';
 import { socket } from '../ws';
+import { QueueList, SideChat, type SideTurn } from './ChatExtras';
 import { Markdown } from './Markdown';
 import { summarize, ToolCall, type ToolBlock, type ToolResult } from './ToolCall';
 import { Empty, Spinner, useUi } from './ui';
@@ -68,6 +71,21 @@ export function LimitWarning({ limits }: { limits: PlanLimits | null }) {
   );
 }
 
+/** the built-in /btw command in the "/" menu (not a skill: it opens the side chat) */
+const BTW_ITEM = {
+  key: 'builtin:btw',
+  id: null,
+  slug: 'btw',
+  name: 'btw',
+  description: 'side question about this chat — answered beside it, not added to it',
+  areas: [],
+  auto: false,
+  scope: 'system',
+  owner: null,
+  published: false,
+  enabled: true,
+} as unknown as Skill;
+
 export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant = 'project', headerExtra }: Props) {
   const ui = useUi();
   const { claude, limits, agents } = useStudio();
@@ -87,6 +105,13 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
   const [text, setText] = useState(initialPrompt ?? '');
   const [sending, setSending] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  // messages sent while the AI works (they start one after another when it is done)
+  const [queue, setQueue] = useState<QueuedMessage[]>([]);
+  const [queuePaused, setQueuePaused] = useState(false);
+  // the side chat (/btw): its conversation per chat, kept in this page only
+  const [sideOpen, setSideOpen] = useState(false);
+  const [sideAsk, setSideAsk] = useState<{ text: string; id: number } | null>(null);
+  const [sideByChat, setSideByChat] = useState<Record<number, SideTurn[]>>({});
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -109,11 +134,13 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
       const w = byName.get(k.slug);
       if (!w || rank[k.scope] < rank[w.scope]) byName.set(k.slug, k);
     }
-    return [...byName.values()]
+    const found = [...byName.values()]
       .filter((k) => !k.areas.length || k.areas.includes(areaId))
       .filter((k) => k.slug.includes(slashQuery) || k.name.toLowerCase().includes(slashQuery))
       .sort((x, y) => Number(y.slug.startsWith(slashQuery)) - Number(x.slug.startsWith(slashQuery)) || x.slug.localeCompare(y.slug))
       .slice(0, 8);
+    // the built-in /btw (side chat) comes first when it matches
+    return 'btw'.startsWith(slashQuery) ? [BTW_ITEM, ...found.filter((k) => k.slug !== 'btw')].slice(0, 8) : found;
   }, [skills, slashQuery, slashOff, casual, project.area]);
   useEffect(() => {
     setSlashIdx(0);
@@ -172,9 +199,13 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
 
   const fetchEvents = useCallback(
     async (id: number, after = 0) => {
-      const r = await api<{ chat: Chat; events: ChatEvent[]; pending: PermRequest[] }>(`/chats/${id}/events${after ? `?after=${after}` : ''}`);
+      const r = await api<{ chat: Chat; events: ChatEvent[]; pending: PermRequest[]; queue?: QueuedMessage[]; queuePaused?: boolean }>(
+        `/chats/${id}/events${after ? `?after=${after}` : ''}`,
+      );
       mergeEvents(r.events);
       setPending(r.pending);
+      setQueue(r.queue ?? []);
+      setQueuePaused(!!r.queuePaused);
       setRunning(r.chat.running);
       if (!r.chat.running) {
         setDraft('');
@@ -196,6 +227,9 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
     setActivityDetail('');
     setRunStart(null);
     setRunning(false);
+    setQueue([]);
+    setQueuePaused(false);
+    setSideOpen(false);
     lastId.current = 0;
     stick.current = true;
     if (!chatId) return;
@@ -239,6 +273,10 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
             void loadChats().catch(() => {});
           }
           break;
+        case 'chat.queue':
+          setQueue(msg.queue);
+          setQueuePaused(!!msg.paused);
+          break;
         case 'perm.request':
           setPending((p) => [...p.filter((x) => x.id !== msg.request.id), msg.request]);
           break;
@@ -257,7 +295,7 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
   useEffect(() => {
     const el = scroller.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [events, draft, activity, pending]);
+  }, [events, draft, activity, pending, queue]);
 
   const onScroll = () => {
     const el = scroller.current;
@@ -272,16 +310,49 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
     return r.chat;
   };
 
-  const send = async () => {
+  const openSide = (question: string | null) => {
+    setSideOpen(true);
+    if (question) setSideAsk({ text: question, id: Date.now() });
+  };
+
+  // sends go out one after another, in the order they were made: a quick second Enter while the
+  // first is still on its way is sent right after it (never dropped, never ahead of it)
+  const sendChain = useRef<Promise<void>>(Promise.resolve());
+  const sendsOpen = useRef(0);
+  // a chat being created by an earlier send: later sends use the same one
+  const creating = useRef<Promise<Chat> | null>(null);
+  useEffect(() => {
+    if (chat) creating.current = null;
+  }, [chat]);
+
+  const send = () => {
     const msg = text.trim();
-    if (!msg || sending || running) return;
+    if (!msg) return;
+    // "/btw …": a side question — answered beside the chat, not part of it
+    const btw = /^\/btw(?:\s+([\s\S]*))?$/i.exec(msg);
+    if (btw) {
+      if (!chat) return ui.toast('Start the chat first — the side chat asks about it', 'info');
+      setText('');
+      openSide(btw[1]?.trim() || null);
+      return;
+    }
     sentAt.current = Date.now();
     setSending(true);
+    // the box is free for the next message at once (cleared after the answer, it wiped what was
+    // typed meanwhile); a failed send puts the text back
+    setText('');
+    const chatAtSend = chat;
+    sendsOpen.current++;
+    sendChain.current = sendChain.current.then(() => deliver(msg, chatAtSend));
+  };
+
+  const deliver = async (msg: string, chatAtSend: Chat | null) => {
     try {
-      const target = chat ?? (await newChat());
+      const target = chatAtSend ?? (await (creating.current ??= newChat()));
       stick.current = true;
-      await api(`/chats/${target.id}/messages`, { body: { text: msg } });
-      setText('');
+      const r = await api<{ ok: boolean; queued?: boolean }>(`/chats/${target.id}/messages`, { body: { text: msg } });
+      // the AI is busy (or earlier messages wait): it is queued and shown under the chat
+      if (r.queued) return;
       setRunning(true);
       setRunStart(Date.now());
       setActivity(`Starting ${providerName(target.provider)}…`);
@@ -289,8 +360,9 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
       if (target.title === 'New chat') void loadChats().catch(() => {});
     } catch (err) {
       ui.toast(errMsg(err), 'error');
+      setText((t) => (t.trim() ? t : msg));
     } finally {
-      setSending(false);
+      if (--sendsOpen.current === 0) setSending(false);
     }
   };
 
@@ -424,6 +496,13 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
         )}
         {chat && (
           <>
+            <button
+              className={`btn sm ${sideOpen ? '' : 'ghost'}`}
+              onClick={() => setSideOpen((o) => !o)}
+              title="Side chat (/btw): ask about this chat without adding to it or interrupting it"
+            >
+              <MessageCircleQuestionMark size={14} /> Side chat
+            </button>
             <button className="btn sm ghost icon" onClick={renameChat} title="Rename">
               <Pencil size={14} />
             </button>
@@ -485,11 +564,26 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
               {activityDetail && <pre className="activity-detail">{activityDetail}</pre>}
             </div>
           )}
+          {chatId && <QueueList chatId={chatId} queue={queue} paused={queuePaused} running={running} ai={ai} />}
         </div>
       </div>
 
       <div className="composer-wrap">
         <div className="composer">
+          {sideOpen && chat && (
+            <SideChat
+              key={chat.id}
+              chatId={chat.id}
+              turns={sideByChat[chat.id] ?? []}
+              setTurns={(fn) => setSideByChat((m) => ({ ...m, [chat.id]: fn(m[chat.id] ?? []) }))}
+              ask={sideAsk}
+              onClose={() => {
+                setSideOpen(false);
+                setSideAsk(null);
+                textarea.current?.focus();
+              }}
+            />
+          )}
           {provider === 'claude' && <LimitWarning limits={limits} />}
           {pending.map((p) => (
             <PermissionCard key={p.id} req={p} rel={rel} onReply={reply} ai={ai} />
@@ -533,7 +627,7 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
               rows={1}
               placeholder={
                 running
-                  ? `${ai} is working — you can type your next message`
+                  ? `${ai} is working — Enter queues your next message (it is sent when this turn is done) · /btw asks on the side`
                   : casual
                     ? `Message ${ai}…  (Enter to send, Shift+Enter for a new line)`
                     : `Ask ${ai} to create, change or explain something…  (Enter to send, Shift+Enter for a new line)`
@@ -547,11 +641,21 @@ export function ChatPanel({ project, area, initialPrompt, onOpenHistory, variant
               <Paperclip size={16} />
             </button>
             {running ? (
-              <button className="btn danger" onClick={stop} title={`Stop ${ai}`}>
-                <Square size={14} /> Stop
-              </button>
+              <>
+                <button
+                  className="btn"
+                  onClick={send}
+                  disabled={!text.trim()}
+                  title={`Queue this message: ${ai} answers it when the current turn is done, without interrupting it`}
+                >
+                  {sending ? <Spinner size={14} /> : <ListPlus size={14} />} Queue
+                </button>
+                <button className="btn danger" onClick={stop} title={`Stop ${ai} (queued messages then wait until you continue them)`}>
+                  <Square size={14} /> Stop
+                </button>
+              </>
             ) : (
-              <button className="btn primary" onClick={send} disabled={!text.trim() || sending}>
+              <button className="btn primary" onClick={send} disabled={!text.trim()}>
                 {sending ? <Spinner size={14} /> : <Send size={14} />} Send
               </button>
             )}

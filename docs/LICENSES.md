@@ -42,6 +42,7 @@ free software under the GNU General Public License, version 3 (`LICENSE.md`).
 | Python packages (numpy, scipy, pillow, opencv-headless, trimesh, manifold3d, shapely, scikit-image, …) | pip at build | BSD / MIT / Apache-2.0 / HPND | `docker/requirements.txt`, tools' `install.sh` |
 | three.js | npm at build (studio-3d preview) | MIT | |
 | yaml (eemeli/yaml) | npm at build (website DAW: edits song files without touching comments) | ISC | |
+| qrcode-generator (Kazuhiko Arase) | npm at build (website: the QR code for setting up two-step sign-in) | MIT | “QR Code” is a registered trademark of DENSO WAVE |
 | acme-client, @peculiar/x509 (+ reflect-metadata) | npm at build (server: automatic and self-signed HTTPS certificates) | MIT / MIT / Apache-2.0 | certificates come from the ACME authority the admin chooses (Let's Encrypt by default) under that authority's subscriber agreement, which the admin accepts in Admin → HTTPS |
 | Playwright + Chromium, Playwright MCP | npm at build | Apache-2.0 / BSD + Chromium's bundled licenses | |
 | .NET SDK | Microsoft install script at build | MIT | |

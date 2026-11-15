@@ -7,6 +7,8 @@
 #   studio-db dump --all > all.sql   the Studio database AND the databases of the WordPress sites
 #   studio-db import < backup.sql    load a dump (schema is created first)
 #   studio-db list                   the databases (Studio + WordPress sites) with their sizes
+#   studio-db reset-2fa <user>       switch two-step sign-in off for an account (user name or email)
+#                                    that lost its authenticator app and recovery codes
 #
 # From the host:  docker compose exec studio studio-db dump > studio.sql
 # Import into a stopped installation:
@@ -67,8 +69,30 @@ case "$cmd" in
       mariadb --socket="$DB_SOCKET" -uroot "$DB_NAME" || { echo "import failed" >&2; exit 1; }
     echo "imported into $DB_NAME" >&2
     ;;
+  reset-2fa)
+    need_db
+    who="${2:-}"
+    if [ -z "$who" ]; then
+      echo "usage: studio-db reset-2fa <user name or email>" >&2
+      exit 2
+    fi
+    # (goes into the SQL as a quoted string: only the characters user names and emails are made of)
+    if ! [[ "$who" =~ ^[A-Za-z0-9._@+-]+$ ]]; then
+      echo "not a user name or email address: $who" >&2
+      exit 2
+    fi
+    who="${who,,}"
+    where="username = '$who' OR email = '$who'"
+    n=$(mariadb --socket="$DB_SOCKET" -uroot -N "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE $where")
+    if [ "$n" != 1 ]; then
+      echo "no account \"$who\"" >&2
+      exit 1
+    fi
+    mariadb --socket="$DB_SOCKET" -uroot "$DB_NAME" -e "DELETE FROM user_recovery_codes WHERE user_id IN (SELECT id FROM users WHERE $where); UPDATE users SET totp_secret_enc = NULL, totp_enabled_at = NULL, totp_last_step = NULL, totp_failed_count = 0, totp_failed_at = NULL WHERE $where" || exit 1
+    echo "Two-step sign-in of $who is off: log in with the password, then switch it on again under Account & AI."
+    ;;
   *)
-    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
     exit 2
     ;;
 esac

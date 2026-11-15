@@ -14,9 +14,20 @@ export interface UserRow {
   status: 'active' | 'disabled';
   created_at: Date;
   last_login_at: Date | null;
+  /** two-step sign-in: the authenticator app's secret (encrypted) — null while it is off */
+  totp_secret_enc: string | null;
+  totp_enabled_at: Date | null;
+  /** the last 30-second step whose code was accepted (a code works once) */
+  totp_last_step: number | null;
+  /** wrong codes in a row since the last accepted one (persistent: a restart does not reset it) */
+  totp_failed_count: number;
+  totp_failed_at: Date | null;
 }
 
-export type AuthUser = Omit<UserRow, 'password_hash'>;
+export type AuthUser = Omit<UserRow, 'password_hash' | 'totp_secret_enc' | 'totp_last_step' | 'totp_failed_count' | 'totp_failed_at'>;
+
+/** the columns of an AuthUser (what may travel around the server outside the login code) */
+export const AUTH_USER_COLUMNS = 'id, email, username, display_name, role, status, created_at, last_login_at, totp_enabled_at';
 
 export const usernameSchema = z
   .string()
@@ -36,6 +47,8 @@ export function publicUser(u: AuthUser | UserRow) {
     status: u.status,
     createdAt: u.created_at,
     lastLoginAt: u.last_login_at,
+    /** two-step sign-in (authenticator app) is on */
+    twoFactor: !!u.totp_enabled_at,
   };
 }
 
@@ -45,10 +58,7 @@ export async function countUsers(): Promise<number> {
 }
 
 export async function getUser(id: number): Promise<AuthUser | null> {
-  return q1<AuthUser>(
-    'SELECT id, email, username, display_name, role, status, created_at, last_login_at FROM users WHERE id = ?',
-    [id],
-  );
+  return q1<AuthUser>(`SELECT ${AUTH_USER_COLUMNS} FROM users WHERE id = ?`, [id]);
 }
 
 export async function findUserForLogin(login: string): Promise<UserRow | null> {
@@ -79,7 +89,5 @@ export async function createUser(input: {
 }
 
 export async function listUsers(): Promise<AuthUser[]> {
-  return q<AuthUser>(
-    'SELECT id, email, username, display_name, role, status, created_at, last_login_at FROM users ORDER BY id',
-  );
+  return q<AuthUser>(`SELECT ${AUTH_USER_COLUMNS} FROM users ORDER BY id`);
 }

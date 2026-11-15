@@ -1,9 +1,13 @@
-"""Starter files for `studio-stickman new` and `studio-stickman plugin new`."""
+"""Starter files for `studio-stickman new` and `studio-stickman plugin new`.
+
+Placeholders: {{TITLE}} (plain text, only in comments), {{TITLE_YAML}} (the title as a quoted YAML
+string: a file called yes.stick.yaml must not get the title True), {{NAME}} (a Python identifier).
+"""
 
 SCENES = {
     "fight": """# {{TITLE}} — studio-stickman scene (reference: studio-stickman docs)
 scene:
-  title: {{TITLE}}
+  title: {{TITLE_YAML}}
   size: [1280, 720]
   fps: 30
   background: dojo            # studio-stickman list backdrops
@@ -42,7 +46,7 @@ events:
 """,
     "talk": """# {{TITLE}} — two figures talking (reference: studio-stickman docs)
 scene:
-  title: {{TITLE}}
+  title: {{TITLE_YAML}}
   size: [1280, 720]
   fps: 30
   background: room
@@ -70,7 +74,7 @@ camera:
 """,
     "dance": """# {{TITLE}} — dancing on the beat (reference: studio-stickman docs)
 scene:
-  title: {{TITLE}}
+  title: {{TITLE_YAML}}
   size: [1280, 720]
   fps: 30
   bpm: 120                    # the tempo: "bar:beat" times and beat lengths (2b) follow it
@@ -97,7 +101,7 @@ events:
 """,
     "blank": """# {{TITLE}} — studio-stickman scene (reference: studio-stickman docs)
 scene:
-  title: {{TITLE}}
+  title: {{TITLE_YAML}}
   size: [1280, 720]
   fps: 30
   background: gradient
@@ -137,11 +141,13 @@ def {{NAME}}(a):
 Angles in degrees, 0 = hanging down / upright, positive = towards the side the figure faces:
 T torso · H head · RS/RE near shoulder/elbow · LS/LE far shoulder/elbow · RH/RK near hip/knee · LH/LK far hip/knee
 Optional: rot (whole body, 90 = lying) and y (height above the floor). Missing angles come from "stand".
+Hinge joints only bend so far (values outside are clamped while drawing; `check` warns):
+elbows RE/LE -10..160 (0 = straight), knees RK/LK -165..5, head H -70..70.
 Look at it:  studio-stickman poses {{NAME}} --preview
 """
 from studio_stickman.api import pose
 
-pose("{{NAME}}", doc="Describe the pose in one line", T=-6, H=-8, RS=160, RE=-25, LS=30, LE=90, RH=14, RK=-8, LH=-14, LK=-6)
+pose("{{NAME}}", doc="Describe the pose in one line", T=-6, H=-8, RS=160, RE=-10, LS=30, LE=90, RH=14, RK=-8, LH=-14, LK=-6)
 ''',
     "prop": '''"""{{NAME}} — a studio-stickman prop (loaded from plugins/stickman/).
 
@@ -203,5 +209,22 @@ def {{NAME}}(sr, p, rng):
     n = int(0.3 * sr)
     t = np.arange(n) / sr
     return np.sin(2 * np.pi * p["freq"] * np.exp(-t * 8) * t) * np.exp(-t * 10) * 0.6
+''',
+    "particle": '''"""{{NAME}} — a studio-stickman particle (loaded from plugins/stickman/).
+
+Use it:   events: [ { t: 2, burst: {{NAME}}, x: 640, y: 300, n: 24, speed: 260, life: 1.2 } ]
+"""
+from studio_stickman.api import color, hash01, particle
+
+
+@particle("{{NAME}}", params={"size": 9, "color": "#ffd23f"}, doc="Describe the particle in one line")
+def {{NAME}}(c, x, y, age, u, seed, p):
+    # one particle at (x, y) in world coordinates; age: seconds since it was born; u: 0 (born) … 1 (gone)
+    # seed: a different whole number per particle — hash01(seed, k) turns it into a steady 0…1 for variety
+    # c.at((x, y), angle=…) gives a canvas around the particle that can turn (here: it spins as it flies)
+    lc = c.at((x, y), angle=age * 360 * (hash01(seed, 1) - 0.5))
+    r = p["size"] * (1 - u * 0.7) * (0.7 + 0.6 * hash01(seed, 2))
+    alpha = int(255 * min(1.0, (1 - u) * 3))         # fades out at the end of its life
+    lc.poly([(0, -r), (r * 0.35, 0), (0, r), (-r * 0.35, 0)], fill=color(p["color"]) + (alpha,))
 ''',
 }

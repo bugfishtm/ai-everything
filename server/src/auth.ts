@@ -9,6 +9,20 @@ import { exec, q1 } from './db.js';
 import { hashPassword, randomToken, sha256, verifyPassword } from './lib/crypto.js';
 import { HttpError, isPrivateAddress, parse } from './lib/http.js';
 import { registrationOpen } from './settings.js';
+import {
+  disableTwoFactor,
+  finishSetup,
+  issueLoginTicket,
+  readLoginTicket,
+  replaceRecoveryCodes,
+  setupTokenValid,
+  spendLoginTicket,
+  startSetup,
+  ticketMatches,
+  twoFactorOn,
+  twoFactorStatus,
+  verifySecondFactor,
+} from './twofactor.js';
 import { closeUserSockets } from './ws.js';
 import {
   type AuthUser,
@@ -113,7 +127,7 @@ export async function userFromRequest(req: IncomingMessage): Promise<AuthUser | 
 async function userFromToken(token: string): Promise<AuthUser | null> {
   if (!token || token.length > 200) return null;
   const row = await q1<AuthUser & { session_id: string; last_seen_at: Date }>(
-    `SELECT u.id, u.email, u.username, u.display_name, u.role, u.status, u.created_at, u.last_login_at,
+    `SELECT u.id, u.email, u.username, u.display_name, u.role, u.status, u.created_at, u.last_login_at, u.totp_enabled_at,
             s.id AS session_id, s.last_seen_at
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.id = ? AND s.expires_at > UTC_TIMESTAMP(3)`,
@@ -179,6 +193,9 @@ function rateLimit(key: string, max: number, windowMs: number): void {
   }
   a.n++;
   if (a.n > max) throw new HttpError(429, 'Too many attempts — try again in a few minutes');
+}
+function clearRateLimit(key: string): void {
+  attempts.delete(key);
 }
 setInterval(() => {
   const now = Date.now();
@@ -288,8 +305,37 @@ authRouter.post('/auth/login', async (req, res) => {
   const ok = await verifyPassword(body.password, row?.password_hash ?? DUMMY_HASH);
   if (!row || !ok) throw new HttpError(401, 'Wrong username/email or password');
   if (row.status !== 'active') throw new HttpError(403, 'This account is disabled');
+  if (twoFactorOn(row)) {
+    // the password was right; the session comes only with the code from the authenticator app
+    res.json({ twoFactor: true, ticket: issueLoginTicket(row) });
+    return;
+  }
   await createSession(req, res, row.id);
   res.json({ user: publicUser(row) });
+});
+
+/** Second step of a sign-in with two-step sign-in on: the code from the app, or a recovery code. */
+authRouter.post('/auth/login/2fa', async (req, res) => {
+  const body = parse(z.object({ ticket: z.string().min(1).max(2000), code: z.string().trim().min(1).max(40) }), req.body);
+  rateLimit(`2fa-ip:${req.ip}`, 30, 15 * 60_000);
+  const expired = () => new HttpError(401, 'The sign-in has expired — please enter your password again', 'ticket_expired');
+  const ticket = readLoginTicket(body.ticket);
+  if (!ticket) throw expired();
+  const row = await q1<UserRow>('SELECT * FROM users WHERE id = ?', [ticket.uid]);
+  // (a stale ticket — new password, 2FA reset — is refused before it can count as an attempt)
+  if (!row || !ticketMatches(ticket, row)) throw expired();
+  // fast throttle per account and address; the lasting cap is the database's count of wrong
+  // codes in a row (verifySecondFactor), so one source cannot block the owner's other devices
+  const limitKey = `2fa:${ticket.uid}:${req.ip}`;
+  rateLimit(limitKey, 5, 15 * 60_000);
+  const r = await verifySecondFactor(row, body.code, true, req.ip);
+  if (!r.ok) throw secondFactorError(r.reason, 401);
+  spendLoginTicket(ticket);
+  clearRateLimit(limitKey);
+  await createSession(req, res, row.id);
+  const left = r.how === 'recovery' ? (await twoFactorStatus(row.id)).recoveryCodesLeft : undefined;
+  if (r.how === 'recovery') console.log(`[auth] ${row.username} signed in with a recovery code (${left} left)`);
+  res.json({ user: publicUser(row), recoveryCodesLeft: left, failedAttempts: r.failedBefore || undefined });
 });
 
 authRouter.post('/auth/logout', async (req, res) => {
@@ -324,6 +370,95 @@ accountRouter.post('/account/password', async (req, res) => {
   // a connection opened with one of those sessions must not live on (this page reconnects by itself)
   closeUserSockets(row.id);
   res.json({ ok: true });
+});
+
+// ---- two-step sign-in (TOTP) of the own account -----------------------------------------------------
+
+function secondFactorError(reason: 'wrong' | 'locked', status: number): HttpError {
+  return reason === 'locked'
+    ? new HttpError(
+        403,
+        'Too many wrong codes in a row — codes from the app are blocked for this account. Use one of your recovery codes, or ask an admin to reset two-step sign-in.',
+        'locked',
+      )
+    : new HttpError(status, 'That code is wrong or was already used — enter the next code from the app, or a recovery code', 'wrong_code');
+}
+
+/** The current password once more — for the changes an open session alone must not be enough for. */
+async function confirmPassword(userId: number, password: string): Promise<UserRow> {
+  rateLimit(`pw:${userId}`, 10, 15 * 60_000);
+  const row = await q1<UserRow>('SELECT * FROM users WHERE id = ?', [userId]);
+  if (!row || !(await verifyPassword(password, row.password_hash))) throw new HttpError(400, 'The password is wrong');
+  return row;
+}
+
+/**
+ * Ends every session of the account and gives this browser a new one. (Not "keep the cookies of
+ * this request": a cookie planted from a sibling domain would ride along and survive.)
+ */
+async function renewSessions(req: Request, res: Response, userId: number): Promise<void> {
+  await exec('DELETE FROM sessions WHERE user_id = ?', [userId]);
+  closeUserSockets(userId);
+  await createSession(req, res, userId);
+}
+
+accountRouter.get('/account/2fa', async (req, res) => {
+  res.json(await twoFactorStatus(req.user!.id));
+});
+
+/** Step 1: the password → a new secret to scan (nothing changes until step 2). */
+accountRouter.post('/account/2fa/setup', async (req, res) => {
+  const body = parse(z.object({ password: z.string().min(1).max(200) }), req.body);
+  const row = await confirmPassword(req.user!.id, body.password);
+  if (twoFactorOn(row)) throw new HttpError(409, 'Two-step sign-in is already on');
+  res.json(startSetup(row, config.appName));
+});
+
+/** Step 2: the first code from the app → on, with recovery codes (shown this one time). */
+accountRouter.post('/account/2fa/enable', async (req, res) => {
+  const body = parse(z.object({ setupToken: z.string().min(1).max(4000), code: z.string().trim().min(1).max(20) }), req.body);
+  const uid = req.user!.id;
+  // a junk token is refused before anything is counted, under a key of its own: this must never
+  // be a way to use up the attempts of the sign-in step
+  if (!setupTokenValid(uid, body.setupToken)) throw new HttpError(400, 'The setup has expired — please start again');
+  rateLimit(`2fa-setup:${uid}`, 5, 15 * 60_000);
+  const r = await finishSetup(uid, body.setupToken, body.code);
+  if (r === 'expired') throw new HttpError(400, 'The setup has expired — please start again');
+  if (r === 'already') throw new HttpError(409, 'Two-step sign-in is already on');
+  if (!r) throw new HttpError(400, 'Wrong code — check that the time on your phone is right and try the next code');
+  clearRateLimit(`2fa-setup:${uid}`);
+  // whoever else was signed in did so without the code
+  await renewSessions(req, res, uid);
+  console.log(`[auth] ${req.user!.username} switched two-step sign-in on`);
+  res.json({ recoveryCodes: r, user: publicUser((await getUser(uid))!) });
+});
+
+/** Off: the password and a current code (or a recovery code). */
+accountRouter.post('/account/2fa/disable', async (req, res) => {
+  const body = parse(z.object({ password: z.string().min(1).max(200), code: z.string().trim().min(1).max(40) }), req.body);
+  const uid = req.user!.id;
+  const row = await confirmPassword(uid, body.password);
+  if (!twoFactorOn(row)) throw new HttpError(409, 'Two-step sign-in is not on');
+  rateLimit(`2fa:${uid}:${req.ip}`, 5, 15 * 60_000);
+  const r = await verifySecondFactor(row, body.code, true, req.ip);
+  if (!r.ok) throw secondFactorError(r.reason, 400);
+  clearRateLimit(`2fa:${uid}:${req.ip}`);
+  await disableTwoFactor(uid);
+  console.log(`[auth] ${req.user!.username} switched two-step sign-in off`);
+  res.json({ user: publicUser((await getUser(uid))!) });
+});
+
+/** New recovery codes (the old ones stop working): the password and a current code. */
+accountRouter.post('/account/2fa/recovery-codes', async (req, res) => {
+  const body = parse(z.object({ password: z.string().min(1).max(200), code: z.string().trim().min(1).max(40) }), req.body);
+  const uid = req.user!.id;
+  const row = await confirmPassword(uid, body.password);
+  if (!twoFactorOn(row)) throw new HttpError(409, 'Two-step sign-in is not on');
+  rateLimit(`2fa:${uid}:${req.ip}`, 5, 15 * 60_000);
+  const r = await verifySecondFactor(row, body.code, true, req.ip);
+  if (!r.ok) throw secondFactorError(r.reason, 400);
+  clearRateLimit(`2fa:${uid}:${req.ip}`);
+  res.json({ recoveryCodes: await replaceRecoveryCodes(uid) });
 });
 
 export async function bootstrapAdmin(): Promise<void> {

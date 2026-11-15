@@ -25,4 +25,9 @@ export const hooks = {
   turnFinished: (projectId: number): void => {
     for (const fn of turnFinishedHandlers) void fn(projectId).catch(() => {});
   },
+  /**
+   * A chat's turn is over and the chat is free again (claude/runner.ts and agents/acprun.ts call it;
+   * the message queue in claude/runner.ts listens). ok: it ended normally — not stopped, not failed.
+   */
+  chatTurnEnded: (_chatId: number, _userId: number, _ok: boolean): void => {},
 };
